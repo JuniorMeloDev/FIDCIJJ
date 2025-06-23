@@ -31,4 +31,8 @@ public class MovimentacaoCaixa {
     
     @Column(name = "id_operacao_associada")
     private Long idOperacaoAssociada;
+
+    // Campo necessário para o fluxo de caixa
+    @Column(name = "empresa_associada")
+    private String empresaAssociada;
 }

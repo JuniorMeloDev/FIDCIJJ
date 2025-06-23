@@ -28,9 +28,10 @@ public class OperacaoService {
     private final DuplicataRepository duplicataRepository;
     private final MovimentacaoCaixaRepository movimentacaoCaixaRepository;
 
-    private static final BigDecimal TAXA_MENSAL_IJJ = new BigDecimal("0.02"); // 2%
-    private static final BigDecimal TAXA_MENSAL_IJJ_TRANSREC = new BigDecimal("0.05"); // 5%
+    private static final BigDecimal TAXA_MENSAL_IJJ = new BigDecimal("0.02");
+    private static final BigDecimal TAXA_MENSAL_IJJ_TRANSREC = new BigDecimal("0.05");
 
+    // ... (método calcularJuros inalterado) ...
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         BigDecimal valorTotal = request.getValorNf();
         int numParcelas = request.getParcelas();
@@ -95,7 +96,7 @@ public class OperacaoService {
                 .numeroParcela(i + 1)
                 .dataVencimento(dataVencimento)
                 .valorParcela(valorParcelaBase)
-                .jurosParcela(jurosParcela) // MODIFICADO: Adiciona o juro individual ao DTO
+                .jurosParcela(jurosParcela)
                 .build());
         }
 
@@ -123,10 +124,6 @@ public class OperacaoService {
     public void salvarOperacao(OperacaoRequestDto operacaoDto) {
         log.info("Processando salvamento da operação para a empresa: {}", operacaoDto.getEmpresaCedente());
         
-        // Recalcula para obter os valores corretos, incluindo juros por parcela
-        CalculoRequestDto calculoGeralRequest = criarCalculoRequest(operacaoDto, operacaoDto.getNotasFiscais().get(0)); // Usando a primeira NF como base para o cálculo geral
-        
-        // Itera sobre cada nota fiscal para salvar as duplicatas
         for (NotaFiscalDto nfDto : operacaoDto.getNotasFiscais()) {
             CalculoRequestDto calculoRequestNF = criarCalculoRequest(operacaoDto, nfDto);
             CalculoResponseDto calculoResult = calcularJuros(calculoRequestNF);
@@ -137,19 +134,14 @@ public class OperacaoService {
                 duplicata.setNfCte(nfDto.getNfCte() + "." + parcela.getNumeroParcela());
                 duplicata.setEmpresaCedente(operacaoDto.getEmpresaCedente());
                 duplicata.setValorBruto(parcela.getValorParcela());
-                
-                // MODIFICADO: Guarda o juro específico da parcela, não um valor proporcional
                 duplicata.setValorJuros(parcela.getJurosParcela());
-                
                 duplicata.setClienteSacado(nfDto.getClienteSacado());
                 duplicata.setDataVencimento(parcela.getDataVencimento());
                 duplicata.setTipoOperacao(operacaoDto.getTipoOperacao());
-
                 duplicataRepository.save(duplicata);
             }
         }
 
-        // Calcula os totais para a movimentação de caixa
         BigDecimal valorTotalOperacao = operacaoDto.getNotasFiscais().stream()
             .map(NotaFiscalDto::getValorNf)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -157,7 +149,6 @@ public class OperacaoService {
         BigDecimal jurosTotalOperacao = operacaoDto.getNotasFiscais().stream()
             .map(nf -> calcularJuros(criarCalculoRequest(operacaoDto, nf)).getTotalJuros())
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-
 
         MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();
         movimentacao.setDataMovimento(operacaoDto.getDataOperacao());
@@ -168,17 +159,21 @@ public class OperacaoService {
             valorLiquidoFinal = valorLiquidoFinal.subtract(operacaoDto.getDescontoAdicional());
         }
 
+        // CORREÇÃO: Adiciona a empresa associada com base no tipo de operação
         switch (operacaoDto.getTipoOperacao()) {
             case IJJ:
                 movimentacao.setContaBancaria("Itaú");
+                movimentacao.setEmpresaAssociada("Recife"); // Dado adicionado
                 movimentacao.setDescricao("PIX Operação IJJ - " + operacaoDto.getEmpresaCedente());
                 break;
             case IJJ_TRANSREC:
                 movimentacao.setContaBancaria("Inter");
+                movimentacao.setEmpresaAssociada("Transrec"); // Dado adicionado
                 movimentacao.setDescricao("PIX Operação IJJ TRANSREC - " + operacaoDto.getEmpresaCedente());
                 break;
             case A_VISTA:
                 movimentacao.setContaBancaria("BNB");
+                movimentacao.setEmpresaAssociada("PE"); // Dado adicionado
                 movimentacao.setDescricao("PIX Operação A VISTA - " + operacaoDto.getEmpresaCedente());
                 break;
         }
@@ -188,6 +183,7 @@ public class OperacaoService {
         log.info("Operação salva com sucesso.");
     }
     
+    // ... (restante do código permanece inalterado) ...
     private CalculoRequestDto criarCalculoRequest(OperacaoRequestDto operacaoDto, NotaFiscalDto nfDto) {
         CalculoRequestDto calculoRequest = new CalculoRequestDto();
         calculoRequest.setDataOperacao(operacaoDto.getDataOperacao());
