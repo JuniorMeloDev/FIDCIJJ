@@ -14,7 +14,7 @@ public class Duplicata {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Mapeamento explícito para o nome da coluna no banco de dados
+    // ... (outros campos) ...
     @Column(name = "data_operacao", nullable = false)
     private LocalDate dataOperacao;
 
@@ -42,4 +42,9 @@ public class Duplicata {
 
     @Column(name = "status_recebimento", nullable = false)
     private String statusRecebimento = "Pendente";
+
+    // RELACIONAMENTO ADICIONADO
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "operacao_id")
+    private Operacao operacao;
 }

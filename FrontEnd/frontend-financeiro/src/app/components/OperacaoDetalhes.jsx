@@ -1,12 +1,8 @@
 'use client';
 
+import { formatBRLNumber } from '@/app/utils/formatters';
+
 export default function OperacaoDetalhes({ notasFiscais, descontos, totais, handleSalvarOperacao, handleLimparTudo, isSaving, onAddDescontoClick, onRemoveDesconto }) {
-    
-    // Função auxiliar para formatar números para moeda, tratando casos de valores indefinidos.
-    const formatCurrency = (value) => {
-        const number = typeof value === 'number' ? value : 0;
-        return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    };
 
     return (
         <section className="bg-white p-6 rounded-lg shadow-md">
@@ -27,9 +23,9 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                             <tr key={nf.id}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{nf.nfCte}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{nf.clienteSacado}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatCurrency(nf.valorNf)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 text-right">-{formatCurrency(nf.jurosCalculado)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatCurrency(nf.valorLiquidoCalculado)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatBRLNumber(nf.valorNf)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 text-right">-{formatBRLNumber(nf.jurosCalculado)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatBRLNumber(nf.valorLiquidoCalculado)}</td>
                             </tr>
                         ))}
                          {notasFiscais.length === 0 && (
@@ -50,7 +46,7 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                             <li key={d.id} className="p-3 flex justify-between items-center text-sm">
                                 <span>{d.descricao}</span>
                                 <div className="flex items-center gap-3">
-                                    <span className="font-medium text-red-600">-{formatCurrency(d.valor)}</span>
+                                    <span className="font-medium text-red-600">-{formatBRLNumber(d.valor)}</span>
                                     <button onClick={() => onRemoveDesconto(d.id)} className="text-gray-400 hover:text-red-500">&times;</button>
                                 </div>
                             </li>
@@ -67,20 +63,20 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
               <div className="bg-gray-100 p-4 rounded-lg space-y-3">
                   <div className="flex justify-between text-sm font-medium">
                       <span>Valor Total dos Títulos:</span>
-                      <span>{formatCurrency(totais.valorTotalBruto)}</span>
+                      <span>{formatBRLNumber(totais.valorTotalBruto)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-medium text-red-600">
                       <span>(-) Deságio Total:</span>
-                      <span>-{formatCurrency(totais.desagioTotal)}</span>
+                      <span>-{formatBRLNumber(totais.desagioTotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-medium text-red-600">
                       <span>(-) Outros Descontos:</span>
-                      <span>-{formatCurrency(totais.totalOutrosDescontos)}</span>
+                      <span>-{formatBRLNumber(totais.totalOutrosDescontos)}</span>
                   </div>
                   <hr/>
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                       <span>Líquido da Operação:</span>
-                      <span className="text-indigo-600">{formatCurrency(totais.liquidoOperacao)}</span>
+                      <span className="text-indigo-600">{formatBRLNumber(totais.liquidoOperacao)}</span>
                   </div>
               </div>
             </div>
@@ -89,7 +85,7 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                   Limpar
                 </button>
                 <button type="button" onClick={handleSalvarOperacao} disabled={isSaving} className="bg-green-600 text-white font-semibold py-2 px-6 rounded-md shadow-sm hover:bg-green-700 disabled:bg-green-300">
-                  {isSaving ? 'A guardar...' : 'Salvar Operação'}
+                  {isSaving ? 'A guardar...' : 'Guardar Operação'}
                 </button>
             </div>
         </section>

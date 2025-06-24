@@ -14,6 +14,7 @@ public class MovimentacaoCaixa {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ... (outros campos) ...
     @Column(name = "data_movimento", nullable = false)
     private LocalDate dataMovimento;
 
@@ -29,10 +30,11 @@ public class MovimentacaoCaixa {
     @Column(nullable = false)
     private String categoria;
     
-    @Column(name = "id_operacao_associada")
-    private Long idOperacaoAssociada;
-
-    // Campo necessário para o fluxo de caixa
     @Column(name = "empresa_associada")
     private String empresaAssociada;
+
+    // RELACIONAMENTO ADICIONADO
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "operacao_id")
+    private Operacao operacao;
 }

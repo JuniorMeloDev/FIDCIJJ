@@ -1,11 +1,11 @@
 package bordero.demo.service;
 
 import bordero.demo.api.dto.*;
-import bordero.demo.domain.entity.Duplicata;
-import bordero.demo.domain.entity.MovimentacaoCaixa;
-import bordero.demo.domain.entity.TipoOperacao;
+import bordero.demo.domain.entity.*;
+import bordero.demo.domain.repository.DescontoRepository;
 import bordero.demo.domain.repository.DuplicataRepository;
 import bordero.demo.domain.repository.MovimentacaoCaixaRepository;
+import bordero.demo.domain.repository.OperacaoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,11 +27,9 @@ public class OperacaoService {
 
     private final DuplicataRepository duplicataRepository;
     private final MovimentacaoCaixaRepository movimentacaoCaixaRepository;
+    private final OperacaoRepository operacaoRepository;
+    private final DescontoRepository descontoRepository;
 
-    private static final BigDecimal TAXA_MENSAL_IJJ = new BigDecimal("0.02");
-    private static final BigDecimal TAXA_MENSAL_IJJ_TRANSREC = new BigDecimal("0.05");
-
-    // ... (método calcularJuros inalterado) ...
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         BigDecimal valorTotal = request.getValorNf();
         int numParcelas = request.getParcelas();
@@ -70,7 +68,7 @@ public class OperacaoService {
                     dataVencimento = proximoDiaUtil(dataVencimentoBase);
                     long diasCorridos = ChronoUnit.DAYS.between(request.getDataOperacao(), dataVencimento);
                     jurosParcela = valorParcelaBase
-                                    .multiply(TAXA_MENSAL_IJJ)
+                                    .multiply(new BigDecimal("0.02"))
                                     .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
                                     .multiply(new BigDecimal(diasCorridos));
                     break;
@@ -78,7 +76,7 @@ public class OperacaoService {
                 case IJJ_TRANSREC:
                     dataVencimento = request.getDataNf().plusDays(prazoDias);
                     jurosParcela = valorTotal
-                                    .multiply(TAXA_MENSAL_IJJ_TRANSREC)
+                                    .multiply(new BigDecimal("0.05"))
                                     .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
                                     .multiply(new BigDecimal(prazoDias));
                     break;
@@ -121,14 +119,46 @@ public class OperacaoService {
     }
     
     @Transactional
-    public void salvarOperacao(OperacaoRequestDto operacaoDto) {
+    public Long salvarOperacao(OperacaoRequestDto operacaoDto) {
         log.info("Processando salvamento da operação para a empresa: {}", operacaoDto.getEmpresaCedente());
+
+        BigDecimal valorTotalOperacao = operacaoDto.getNotasFiscais().stream()
+                .map(NotaFiscalDto::getValorNf)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal jurosTotalOperacao = operacaoDto.getNotasFiscais().stream()
+                .map(nf -> calcularJuros(criarCalculoRequest(operacaoDto, nf)).getTotalJuros())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         
+        BigDecimal totalDescontosAdicionais = BigDecimal.ZERO;
+        if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
+            totalDescontosAdicionais = operacaoDto.getDescontos().stream()
+                .map(DescontoDto::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        BigDecimal valorLiquidoFinal;
+        if (operacaoDto.getTipoOperacao() == TipoOperacao.A_VISTA) {
+            valorLiquidoFinal = valorTotalOperacao.subtract(totalDescontosAdicionais);
+        } else {
+            valorLiquidoFinal = valorTotalOperacao.subtract(jurosTotalOperacao).subtract(totalDescontosAdicionais);
+        }
+
+        Operacao operacao = new Operacao();
+        operacao.setDataOperacao(operacaoDto.getDataOperacao());
+        operacao.setTipoOperacao(operacaoDto.getTipoOperacao());
+        operacao.setEmpresaCedente(operacaoDto.getEmpresaCedente());
+        operacao.setValorTotalBruto(valorTotalOperacao);
+        operacao.setValorTotalJuros(jurosTotalOperacao);
+        operacao.setValorTotalDescontos(totalDescontosAdicionais);
+        operacao.setValorLiquido(valorLiquidoFinal);
+        
+        Operacao operacaoSalva = operacaoRepository.save(operacao);
+
+        List<Duplicata> duplicatasList = new ArrayList<>();
         for (NotaFiscalDto nfDto : operacaoDto.getNotasFiscais()) {
-            CalculoRequestDto calculoRequestNF = criarCalculoRequest(operacaoDto, nfDto);
-            CalculoResponseDto calculoResult = calcularJuros(calculoRequestNF);
-            
-            for(ParcelaDto parcela : calculoResult.getParcelasCalculadas()) {
+            CalculoResponseDto calculoResult = calcularJuros(criarCalculoRequest(operacaoDto, nfDto));
+            for (ParcelaDto parcela : calculoResult.getParcelasCalculadas()) {
                 Duplicata duplicata = new Duplicata();
                 duplicata.setDataOperacao(operacaoDto.getDataOperacao());
                 duplicata.setNfCte(nfDto.getNfCte() + "." + parcela.getNumeroParcela());
@@ -138,52 +168,56 @@ public class OperacaoService {
                 duplicata.setClienteSacado(nfDto.getClienteSacado());
                 duplicata.setDataVencimento(parcela.getDataVencimento());
                 duplicata.setTipoOperacao(operacaoDto.getTipoOperacao());
-                duplicataRepository.save(duplicata);
+                duplicata.setOperacao(operacaoSalva);
+                duplicatasList.add(duplicata);
             }
         }
+        duplicataRepository.saveAll(duplicatasList);
 
-        BigDecimal valorTotalOperacao = operacaoDto.getNotasFiscais().stream()
-            .map(NotaFiscalDto::getValorNf)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal jurosTotalOperacao = operacaoDto.getNotasFiscais().stream()
-            .map(nf -> calcularJuros(criarCalculoRequest(operacaoDto, nf)).getTotalJuros())
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
+            List<Desconto> descontosList = new ArrayList<>();
+            for (DescontoDto dto : operacaoDto.getDescontos()) {
+                Desconto desconto = new Desconto();
+                desconto.setDescricao(dto.getDescricao());
+                desconto.setValor(dto.getValor());
+                desconto.setOperacao(operacaoSalva);
+                descontosList.add(desconto);
+            }
+            descontoRepository.saveAll(descontosList);
+        }
 
         MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();
         movimentacao.setDataMovimento(operacaoDto.getDataOperacao());
         movimentacao.setCategoria("Pagamento de Duplicata");
+        movimentacao.setValor(valorLiquidoFinal.negate());
         
-        BigDecimal valorLiquidoFinal = valorTotalOperacao.subtract(jurosTotalOperacao);
-        if (operacaoDto.getDescontoAdicional() != null) {
-            valorLiquidoFinal = valorLiquidoFinal.subtract(operacaoDto.getDescontoAdicional());
-        }
-
-        // CORREÇÃO: Adiciona a empresa associada com base no tipo de operação
+        String numerosNfCte = operacaoDto.getNotasFiscais().stream()
+                .map(NotaFiscalDto::getNfCte)
+                .collect(Collectors.joining(", "));
+        String prefixoDescricao = (operacaoDto.getTipoOperacao() == TipoOperacao.IJJ_TRANSREC) ? "Borderô Cte " : "Borderô NF ";
+        movimentacao.setDescricao(prefixoDescricao + numerosNfCte);
+        
         switch (operacaoDto.getTipoOperacao()) {
             case IJJ:
                 movimentacao.setContaBancaria("Itaú");
-                movimentacao.setEmpresaAssociada("Recife"); // Dado adicionado
-                movimentacao.setDescricao("PIX Operação IJJ - " + operacaoDto.getEmpresaCedente());
+                movimentacao.setEmpresaAssociada("Recife");
                 break;
             case IJJ_TRANSREC:
                 movimentacao.setContaBancaria("Inter");
-                movimentacao.setEmpresaAssociada("Transrec"); // Dado adicionado
-                movimentacao.setDescricao("PIX Operação IJJ TRANSREC - " + operacaoDto.getEmpresaCedente());
+                movimentacao.setEmpresaAssociada("Transrec");
                 break;
             case A_VISTA:
                 movimentacao.setContaBancaria("BNB");
-                movimentacao.setEmpresaAssociada("PE"); // Dado adicionado
-                movimentacao.setDescricao("PIX Operação A VISTA - " + operacaoDto.getEmpresaCedente());
+                movimentacao.setEmpresaAssociada("PE");
                 break;
         }
-
-        movimentacao.setValor(valorLiquidoFinal.negate());
+        
+        movimentacao.setOperacao(operacaoSalva);
         movimentacaoCaixaRepository.save(movimentacao);
-        log.info("Operação salva com sucesso.");
+
+        return operacaoSalva.getId();
     }
     
-    // ... (restante do código permanece inalterado) ...
     private CalculoRequestDto criarCalculoRequest(OperacaoRequestDto operacaoDto, NotaFiscalDto nfDto) {
         CalculoRequestDto calculoRequest = new CalculoRequestDto();
         calculoRequest.setDataOperacao(operacaoDto.getDataOperacao());
@@ -197,7 +231,13 @@ public class OperacaoService {
         }
         return calculoRequest;
     }
-
+    
+    @Transactional(readOnly = true)
+    public Operacao buscarOperacaoPorId(Long id) {
+        return operacaoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Operação não encontrada com o ID: " + id));
+    }
+    
     @Transactional(readOnly = true)
     public List<DuplicataResponseDto> listarTodasAsDuplicatas() {
         return duplicataRepository.findAll().stream()
@@ -206,8 +246,10 @@ public class OperacaoService {
     }
 
     private DuplicataResponseDto converterParaDto(Duplicata duplicata) {
+        Long operacaoId = (duplicata.getOperacao() != null) ? duplicata.getOperacao().getId() : null;
         return DuplicataResponseDto.builder()
                 .id(duplicata.getId())
+                .operacaoId(operacaoId)
                 .dataOperacao(duplicata.getDataOperacao())
                 .nfCte(duplicata.getNfCte())
                 .empresaCedente(duplicata.getEmpresaCedente())
@@ -219,7 +261,7 @@ public class OperacaoService {
                 .statusRecebimento(duplicata.getStatusRecebimento())
                 .build();
     }
-
+    
     private LocalDate proximoDiaUtil(LocalDate data) {
         DayOfWeek diaDaSemana = data.getDayOfWeek();
         if (diaDaSemana == DayOfWeek.SATURDAY) {
