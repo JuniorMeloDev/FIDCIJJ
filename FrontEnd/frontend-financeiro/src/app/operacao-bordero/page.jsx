@@ -103,7 +103,7 @@ export default function OperacaoBorderoPage() {
         setNotasFiscais([]);
         setDescontos([]);
         setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '', prazos: '', peso: '' });
-        showNotification('Formulário limpo.', 'success');
+        showNotification('Formulário limpo', 'success');
     };
 
     const handleSalvarOperacao = async () => {

@@ -85,7 +85,7 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                   Limpar
                 </button>
                 <button type="button" onClick={handleSalvarOperacao} disabled={isSaving} className="bg-green-600 text-white font-semibold py-2 px-6 rounded-md shadow-sm hover:bg-green-700 disabled:bg-green-300">
-                  {isSaving ? 'A guardar...' : 'Guardar Operação'}
+                  {isSaving ? 'A guardar...' : 'Salvar Operação'}
                 </button>
             </div>
         </section>

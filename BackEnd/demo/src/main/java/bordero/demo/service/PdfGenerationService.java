@@ -43,8 +43,7 @@ public class PdfGenerationService {
         document.add(dataAssinatura);
         
         // Cabeçalho da Operação
-        document.add(new Paragraph("Empresa: FIDC " + operacao.getTipoOperacao().name()).setMarginTop(15));
-        document.add(new Paragraph("Cedente: " + operacao.getEmpresaCedente()).setBold());
+        document.add(new Paragraph("Empresa: FIDC IJJ ")); 
         
         // Tabela de Duplicatas
         document.add(new Paragraph("\n"));
