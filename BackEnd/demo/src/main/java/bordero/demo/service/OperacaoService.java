@@ -218,6 +218,89 @@ public class OperacaoService {
         return operacaoSalva.getId();
     }
     
+    @Transactional
+    public void liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora) {
+        log.info("Iniciando liquidação da duplicata ID: {} com data {} e juros/mora de {}", duplicataId, dataLiquidacao, jurosMora);
+
+        Duplicata duplicata = duplicataRepository.findById(duplicataId)
+                .orElseThrow(() -> new RuntimeException("Duplicata com ID " + duplicataId + " não encontrada."));
+
+        if (!"Pendente".equalsIgnoreCase(duplicata.getStatusRecebimento())) {
+            log.warn("Duplicata ID: {} já está com o estado {}.", duplicataId, duplicata.getStatusRecebimento());
+            return;
+        }
+
+        if (dataLiquidacao != null) {
+            BigDecimal valorFinalRecebimento = duplicata.getValorBruto();
+
+            if (jurosMora != null && jurosMora.compareTo(BigDecimal.ZERO) > 0) {
+                valorFinalRecebimento = valorFinalRecebimento.add(jurosMora);
+            }
+
+            MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();
+            movimentacao.setDataMovimento(dataLiquidacao);
+            movimentacao.setValor(valorFinalRecebimento);
+            movimentacao.setCategoria("Recebimento");
+            
+            String prefixo = duplicata.getTipoOperacao() == TipoOperacao.IJJ_TRANSREC ? "Recebimento Cte " : "Recebimento NF ";
+            movimentacao.setDescricao(prefixo + duplicata.getNfCte());
+            
+            switch (duplicata.getTipoOperacao()) {
+                case IJJ:
+                    if ("RECIFE NUTRIÇÃO ANIMAL".equalsIgnoreCase(duplicata.getEmpresaCedente())) {
+                        movimentacao.setContaBancaria("Itaú");
+                        movimentacao.setEmpresaAssociada("Recife");
+                    } else if ("PERNAMBUCO NUTRIÇÃO ANIMAL".equalsIgnoreCase(duplicata.getEmpresaCedente())) {
+                        movimentacao.setContaBancaria("BNB");
+                        movimentacao.setEmpresaAssociada("PE");
+                    } else {
+                        log.warn("Cedente desconhecido para operação IJJ: '{}'. A usar conta padrão Itaú/Recife.", duplicata.getEmpresaCedente());
+                        movimentacao.setContaBancaria("Itaú");
+                        movimentacao.setEmpresaAssociada("Recife");
+                    }
+                    break;
+                case A_VISTA:
+                    movimentacao.setContaBancaria("BNB");
+                    movimentacao.setEmpresaAssociada("PE");
+                    break;
+                case IJJ_TRANSREC:
+                    movimentacao.setContaBancaria("Inter");
+                    movimentacao.setEmpresaAssociada("Transrec");
+                    break;
+            }
+
+            MovimentacaoCaixa movimentacaoSalva = movimentacaoCaixaRepository.save(movimentacao);
+            duplicata.setLiquidacaoMovId(movimentacaoSalva.getId());
+            log.info("Movimentação de caixa ID: {} criada para o recebimento da duplicata ID: {}.", movimentacaoSalva.getId(), duplicataId);
+        }
+
+        duplicata.setStatusRecebimento("Recebido");
+        duplicataRepository.save(duplicata);
+        log.info("Duplicata ID: {} atualizada para 'Recebido'.", duplicataId);
+    }
+    
+    @Transactional
+    public void estornarLiquidacao(Long duplicataId) {
+        log.info("Iniciando estorno da liquidação para a duplicata ID: {}", duplicataId);
+        
+        Duplicata duplicata = duplicataRepository.findById(duplicataId)
+                .orElseThrow(() -> new RuntimeException("Duplicata com ID " + duplicataId + " não encontrada."));
+
+        if (!"Recebido".equalsIgnoreCase(duplicata.getStatusRecebimento())) {
+            throw new IllegalStateException("Apenas duplicatas com estado 'Recebido' podem ser estornadas.");
+        }
+
+        if (duplicata.getLiquidacaoMovId() != null) {
+            movimentacaoCaixaRepository.deleteById(duplicata.getLiquidacaoMovId());
+            log.info("Movimentação de caixa ID: {} associada foi excluída.", duplicata.getLiquidacaoMovId());
+        }
+
+        duplicata.setStatusRecebimento("Pendente");
+        duplicata.setLiquidacaoMovId(null);
+        duplicataRepository.save(duplicata);
+        log.info("Estorno da duplicata ID: {} concluído com sucesso.", duplicataId);
+    }
+
     private CalculoRequestDto criarCalculoRequest(OperacaoRequestDto operacaoDto, NotaFiscalDto nfDto) {
         CalculoRequestDto calculoRequest = new CalculoRequestDto();
         calculoRequest.setDataOperacao(operacaoDto.getDataOperacao());

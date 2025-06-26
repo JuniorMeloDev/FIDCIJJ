@@ -25,6 +25,24 @@ public class MovimentacaoCaixaService {
                 .collect(Collectors.toList());
     }
 
+     @Transactional
+    public void excluirMovimentacao(Long movimentacaoId) {
+        MovimentacaoCaixa movimentacao = repository.findById(movimentacaoId)
+                .orElseThrow(() -> new RuntimeException("Movimentação com ID " + movimentacaoId + " não encontrada."));
+
+        // Regra de negócio: impede a exclusão de movimentações ligadas a operações de borderô
+        if (movimentacao.getOperacao() != null) {
+            throw new IllegalStateException("Não é permitido excluir uma movimentação que está ligada a uma operação de borderô.");
+        }
+        
+        // Regra de negócio: impede a exclusão de recebimentos de duplicatas (devem ser estornados)
+        if ("Recebimento".equalsIgnoreCase(movimentacao.getCategoria())) {
+             throw new IllegalStateException("Recebimentos de duplicatas devem ser estornados pela tela de Consultas, não excluídos.");
+        }
+
+        repository.deleteById(movimentacaoId);
+    }
+
     private MovimentacaoCaixaResponseDto converterParaDto(MovimentacaoCaixa model) {
         return MovimentacaoCaixaResponseDto.builder()
                 .id(model.getId())

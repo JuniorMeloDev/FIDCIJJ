@@ -28,19 +28,12 @@ public class OperacaoController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Endpoint para guardar uma operação de desconto completa.
-     * Retorna o ID da operação criada.
-     */
     @PostMapping("/salvar")
     public ResponseEntity<Long> salvarOperacao(@Valid @RequestBody OperacaoRequestDto operacaoRequestDto) {
         Long operacaoId = operacaoService.salvarOperacao(operacaoRequestDto);
         return new ResponseEntity<>(operacaoId, HttpStatus.CREATED);
     }
 
-    /**
-     * Endpoint para gerar o PDF do Borderô de uma operação específica.
-     */
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> gerarPdfBordero(@PathVariable Long id) {
         Operacao operacao = operacaoService.buscarOperacaoPorId(id);
