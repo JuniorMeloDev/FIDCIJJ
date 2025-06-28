@@ -10,4 +10,7 @@ import lombok.Data;
 public class Emit {
     @XmlElement(name = "xNome", namespace = "http://www.portalfiscal.inf.br/nfe")
     private String xNome;
+
+    @XmlElement(name = "CNPJ", namespace = "http://www.portalfiscal.inf.br/nfe")
+    private String cnpj;
 }

@@ -10,4 +10,13 @@ import lombok.Data;
 public class Dest {
     @XmlElement(name = "xNome", namespace = "http://www.portalfiscal.inf.br/nfe")
     private String xNome;
+
+    @XmlElement(name = "CNPJ", namespace = "http://www.portalfiscal.inf.br/nfe")
+    private String cnpj;
+
+    @XmlElement(name = "enderDest", namespace = "http://www.portalfiscal.inf.br/nfe")
+    private EnderDest enderDest; // Campo adicionado
+
+    @XmlElement(name = "IE", namespace = "http://www.portalfiscal.inf.br/nfe")
+    private String IE;
 }

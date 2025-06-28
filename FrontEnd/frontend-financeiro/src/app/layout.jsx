@@ -36,6 +36,9 @@ export default function RootLayout({ children }) {
                   <Link href="/lancamentos" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">
                     Lançamentos
                   </Link>
+                  <Link href="/cadastros/clientes" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">
+                  Cadastros
+                </Link>
                 </div>
               </div>
             </div>

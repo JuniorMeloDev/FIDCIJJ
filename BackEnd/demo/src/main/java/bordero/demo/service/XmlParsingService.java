@@ -2,6 +2,9 @@ package bordero.demo.service;
 
 import bordero.demo.api.dto.NfeXmlDataDto;
 import bordero.demo.service.xml.model.NfeProc;
+import bordero.demo.domain.entity.Cliente;
+import bordero.demo.domain.entity.Sacado;
+import lombok.RequiredArgsConstructor;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
 import org.springframework.stereotype.Service;
@@ -15,7 +18,10 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class XmlParsingService {
+
+    private final CadastroService cadastroService;
 
     public NfeXmlDataDto parseNfe(MultipartFile file) throws Exception {
         try (InputStream inputStream = file.getInputStream()) {
@@ -25,6 +31,14 @@ public class XmlParsingService {
             NfeProc nfeProc = (NfeProc) jaxbUnmarshaller.unmarshal(inputStream);
 
             var infNfe = nfeProc.getNFe().getInfNFe();
+            var emitente = infNfe.getEmit();
+            var destinatario = infNfe.getDest();
+
+            Cliente cliente = cadastroService.findOrCreateCliente(emitente.getXNome(), emitente.getCnpj());
+
+            Sacado sacado = cadastroService.findOrCreateSacado(destinatario);
+
+            cadastroService.linkClienteSacado(cliente, sacado);
 
             return NfeXmlDataDto.builder()
                 .numeroNf(infNfe.getIde().getNNF())
