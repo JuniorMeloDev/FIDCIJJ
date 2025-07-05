@@ -2,7 +2,7 @@
 
 export default function AdicionarNotaFiscalForm({ novaNf, handleInputChange, handleAddNotaFiscal, tipoOperacao, isLoading }) {
     return (
-        <section className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <section className="bg-white p-4 rounded-lg shadow-md mb-8">
           <h2 className="text-2xl font-semibold mb-4">Adicionar Nota Fiscal / CT-e</h2>
           <form onSubmit={handleAddNotaFiscal} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
             <div className="md:col-span-2 lg:col-span-1">

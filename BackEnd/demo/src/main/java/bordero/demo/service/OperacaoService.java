@@ -2,12 +2,16 @@ package bordero.demo.service;
 
 import bordero.demo.api.dto.*;
 import bordero.demo.domain.entity.*;
+import bordero.demo.domain.entity.Duplicata_;
 import bordero.demo.domain.repository.DescontoRepository;
 import bordero.demo.domain.repository.DuplicataRepository;
 import bordero.demo.domain.repository.MovimentacaoCaixaRepository;
 import bordero.demo.domain.repository.OperacaoRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -219,7 +223,7 @@ public class OperacaoService {
     }
     
     @Transactional
-    public void liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora) {
+    public DuplicataResponseDto liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora) {
         log.info("Iniciando liquidação da duplicata ID: {} com data {} e juros/mora de {}", duplicataId, dataLiquidacao, jurosMora);
 
         Duplicata duplicata = duplicataRepository.findById(duplicataId)
@@ -227,7 +231,7 @@ public class OperacaoService {
 
         if (!"Pendente".equalsIgnoreCase(duplicata.getStatusRecebimento())) {
             log.warn("Duplicata ID: {} já está com o estado {}.", duplicataId, duplicata.getStatusRecebimento());
-            return;
+            return converterParaDto(duplicata);
         }
 
         if (dataLiquidacao != null) {
@@ -275,8 +279,10 @@ public class OperacaoService {
         }
 
         duplicata.setStatusRecebimento("Recebido");
-        duplicataRepository.save(duplicata);
+        Duplicata duplicataSalva = duplicataRepository.save(duplicata);
         log.info("Duplicata ID: {} atualizada para 'Recebido'.", duplicataId);
+        
+        return converterParaDto(duplicataSalva);
     }
     
     @Transactional
@@ -322,15 +328,52 @@ public class OperacaoService {
     }
     
     @Transactional(readOnly = true)
-    public List<DuplicataResponseDto> listarTodasAsDuplicatas() {
-        return duplicataRepository.findAll().stream()
+    public List<DuplicataResponseDto> listarTodasAsDuplicatas(
+            LocalDate dataOpInicio, LocalDate dataOpFim,
+            LocalDate dataVencInicio, LocalDate dataVencFim,
+            String sacado, String nfCte, BigDecimal valor, String status) {
+
+        Specification<Duplicata> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (dataOpInicio != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(Duplicata_.dataOperacao), dataOpInicio));
+            }
+            if (dataOpFim != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get(Duplicata_.dataOperacao), dataOpFim));
+            }
+            if (dataVencInicio != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(Duplicata_.dataVencimento), dataVencInicio));
+            }
+            if (dataVencFim != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get(Duplicata_.dataVencimento), dataVencFim));
+            }
+            if (sacado != null && !sacado.isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get(Duplicata_.clienteSacado)), "%" + sacado.toLowerCase() + "%"));
+            }
+            if (nfCte != null && !nfCte.isBlank()) {
+                predicates.add(criteriaBuilder.like(root.get(Duplicata_.nfCte), "%" + nfCte + "%"));
+            }
+            if (valor != null) {
+                predicates.add(criteriaBuilder.equal(root.get(Duplicata_.valorBruto), valor));
+            }
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase("Todos")) {
+                predicates.add(criteriaBuilder.equal(root.get(Duplicata_.statusRecebimento), status));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "dataOperacao");
+        return duplicataRepository.findAll(spec, sort).stream()
                 .map(this::converterParaDto)
                 .collect(Collectors.toList());
     }
 
     private DuplicataResponseDto converterParaDto(Duplicata duplicata) {
         Long operacaoId = (duplicata.getOperacao() != null) ? duplicata.getOperacao().getId() : null;
-        return DuplicataResponseDto.builder()
+        
+        DuplicataResponseDto.DuplicataResponseDtoBuilder builder = DuplicataResponseDto.builder()
                 .id(duplicata.getId())
                 .operacaoId(operacaoId)
                 .dataOperacao(duplicata.getDataOperacao())
@@ -341,8 +384,16 @@ public class OperacaoService {
                 .clienteSacado(duplicata.getClienteSacado())
                 .dataVencimento(duplicata.getDataVencimento())
                 .tipoOperacao(duplicata.getTipoOperacao())
-                .statusRecebimento(duplicata.getStatusRecebimento())
-                .build();
+                .statusRecebimento(duplicata.getStatusRecebimento());
+
+        if (duplicata.getLiquidacaoMovId() != null) {
+            movimentacaoCaixaRepository.findById(duplicata.getLiquidacaoMovId()).ifPresent(mov -> {
+                builder.dataLiquidacao(mov.getDataMovimento());
+                builder.contaLiquidacao(mov.getContaBancaria());
+            });
+        }
+
+        return builder.build();
     }
     
     private LocalDate proximoDiaUtil(LocalDate data) {

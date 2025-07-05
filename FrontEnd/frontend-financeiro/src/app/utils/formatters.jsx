@@ -70,3 +70,12 @@ export const formatCep = (value) => {
         .slice(0, 8)
         .replace(/(\d{5})(\d)/, '$1-$2');
 };
+
+export const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    if (dateString.includes('T')) {
+        dateString = dateString.split('T')[0];
+    }
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+};

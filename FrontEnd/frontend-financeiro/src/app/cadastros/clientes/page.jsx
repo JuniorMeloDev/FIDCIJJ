@@ -5,18 +5,23 @@ import Link from 'next/link';
 import EditClienteModal from '@/app/components/EditClienteModal';
 import Notification from '@/app/components/Notification';
 import { formatCnpjCpf } from '@/app/utils/formatters'; 
+import Pagination from '@/app/components/Pagination';
 
+const ITEMS_PER_PAGE = 20;
 const API_URL = 'http://localhost:8080/api/cadastros';
 
 export default function ClientesPage() {
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
     
+    // Estados para o formulário de novo cliente
     const [nome, setNome] = useState('');
     const [cnpj, setCnpj] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Estado para controlar o modal de edição
     const [editingCliente, setEditingCliente] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
 
@@ -56,7 +61,7 @@ export default function ClientesPage() {
             if (!response.ok) throw new Error('Falha ao criar cliente.');
             setNome('');
             setCnpj('');
-            await fetchClientes();
+            await fetchClientes(); // Atualiza a lista
             showNotification('Cliente criado com sucesso!', 'success');
         } catch (err) {
             showNotification(err.message, 'error');
@@ -99,8 +104,12 @@ export default function ClientesPage() {
         }
     };
 
+    // Lógica para a paginação
+    const currentItems = clientes.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
     return (
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <EditClienteModal
                 isOpen={!!editingCliente}
@@ -109,9 +118,9 @@ export default function ClientesPage() {
                 onSave={handleUpdateCliente}
                 onDelete={handleDeleteCliente}
             />
-            <header className="mb-8">
-                <h1 className="text-4xl font-bold text-gray-900">Cadastros</h1>
-                <p className="text-lg text-gray-600 mt-1">Gestão de Clientes e Sacados</p>
+            <header className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">Cadastros</h1>
+                <p className="text-sm text-gray-600 mt-1">Gestão de Clientes e Sacados</p>
             </header>
 
             <div className="mb-8 border-b border-gray-200">
@@ -126,7 +135,7 @@ export default function ClientesPage() {
             </div>
 
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Adicionar Novo Cliente</h2>
+                <h2 className="text-xl font-semibold mb-4">Adicionar Novo Cliente</h2>
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                     <div className="md:col-span-2">
                         <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome da Empresa</label>
@@ -144,8 +153,8 @@ export default function ClientesPage() {
                 </form>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-semibold mb-4">Clientes Registados</h2>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Clientes Registados</h2>
                 <div className="overflow-x-auto">
                     {loading && <p>A carregar...</p>}
                     {error && <p className="text-red-500">{error}</p>}
@@ -153,22 +162,23 @@ export default function ClientesPage() {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {clientes.map((cliente) => (
+                                {currentItems.map((cliente) => (
                                     <tr key={cliente.id} onClick={() => setEditingCliente(cliente)} className="hover:bg-gray-100 cursor-pointer">
-                                        <td className="px-6 py-4 text-sm text-gray-500">{cliente.id}</td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{cliente.nome}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{formatCnpjCpf(cliente.cnpj)}</td>
+                                        <td className="px-4 py-2 text-xs text-gray-500">{cliente.id}</td>
+                                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{cliente.nome}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{formatCnpjCpf(cliente.cnpj)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     )}
+                    <Pagination totalItems={clientes.length} itemsPerPage={ITEMS_PER_PAGE} currentPage={currentPage} onPageChange={paginate} />
                 </div>
             </div>
         </main>

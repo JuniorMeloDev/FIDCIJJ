@@ -20,4 +20,6 @@ public class DuplicataResponseDto {
     private LocalDate dataVencimento;
     private TipoOperacao tipoOperacao;
     private String statusRecebimento;
+    private LocalDate dataLiquidacao;
+    private String contaLiquidacao;
 }

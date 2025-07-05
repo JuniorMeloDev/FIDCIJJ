@@ -5,15 +5,17 @@ import Link from 'next/link';
 import EditSacadoModal from '@/app/components/EditSacadoModal';
 import Notification from '@/app/components/Notification';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
+import Pagination from '@/app/components/Pagination';
 
+const ITEMS_PER_PAGE = 20;
 const API_URL = 'http://localhost:8080/api/cadastros';
 
 export default function SacadosPage() {
     const [sacados, setSacados] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
     
-    // Estados para o formulário de novo sacado
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [newSacado, setNewSacado] = useState({
@@ -142,8 +144,11 @@ export default function SacadosPage() {
         }
     };
 
+    const currentItems = sacados.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
     return (
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <EditSacadoModal
                 isOpen={!!editingSacado}
@@ -152,9 +157,9 @@ export default function SacadosPage() {
                 onSave={handleUpdateSacado}
                 onDelete={handleDeleteSacado}
             />
-            <header className="mb-8">
-                <h1 className="text-4xl font-bold text-gray-900">Cadastros</h1>
-                <p className="text-lg text-gray-600 mt-1">Gestão de Clientes e Sacados</p>
+            <header className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">Cadastros</h1>
+                <p className="text-sm text-gray-600 mt-1">Gestão de Clientes e Sacados</p>
             </header>
 
             <div className="mb-8 border-b border-gray-200">
@@ -171,12 +176,12 @@ export default function SacadosPage() {
             <div className="mb-8">
                 {!showForm ? (
                     <button onClick={() => setShowForm(true)} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-indigo-700">
-                        Novo Sacado
+                        + Adicionar Sacado Manualmente
                     </button>
                 ) : (
                     <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-2xl font-semibold mb-4">Adicionar Novo Sacado</h2>
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <h2 className="text-xl font-semibold mb-4">Adicionar Novo Sacado</h2>
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                              <div className="md:col-span-2">
                                 <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome</label>
                                 <input type="text" name="nome" value={newSacado.nome} onChange={handleInputChange} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
@@ -218,7 +223,7 @@ export default function SacadosPage() {
                                     Cancelar
                                 </button>
                                 <button type="submit" disabled={isSubmitting} className="bg-green-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-green-300">
-                                    {isSubmitting ? 'A guardar...' : 'Salvar'}
+                                    {isSubmitting ? 'A guardar...' : 'Guardar Sacado'}
                                 </button>
                             </div>
                         </form>
@@ -226,33 +231,34 @@ export default function SacadosPage() {
                 )}
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                <h2 className="text-2xl font-semibold mb-4">Sacados Registados</h2>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Sacados Registados</h2>
                 <div className="overflow-x-auto">
-                    {loading && <p>A carregar...</p>}
-                    {error && <p className="text-red-500">{error}</p>}
+                    {loading && <p className="text-center py-4">A carregar...</p>}
+                    {error && <p className="text-center py-4 text-red-500">{error}</p>}
                     {!loading && !error && (
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Município</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Município</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {sacados.map((sacado) => (
+                                {currentItems.map((sacado) => (
                                     <tr key={sacado.id} onClick={() => setEditingSacado(sacado)} className="hover:bg-gray-100 cursor-pointer">
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{sacado.nome}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{formatCnpjCpf(sacado.cnpj)}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{sacado.municipio} - {sacado.uf}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">{formatTelefone(sacado.fone)}</td>
+                                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{sacado.nome}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{formatCnpjCpf(sacado.cnpj)}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{sacado.municipio} - {sacado.uf}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-500">{formatTelefone(sacado.fone)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     )}
+                    <Pagination totalItems={sacados.length} itemsPerPage={ITEMS_PER_PAGE} currentPage={currentPage} onPageChange={paginate} />
                 </div>
             </div>
         </main>

@@ -8,13 +8,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/upload")
+@RequestMapping("/api/import")
 @RequiredArgsConstructor
 public class XmlUploadController {
 
     private final XmlParsingService xmlParsingService;
 
-    @PostMapping("/nfe-xml")
+    @PostMapping("/xml")
     public ResponseEntity<?> uploadNfeXml(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("Por favor, selecione um ficheiro para fazer o upload.");

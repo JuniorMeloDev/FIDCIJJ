@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+
 @RestController
 @RequestMapping("/api/duplicatas")
 @RequiredArgsConstructor
@@ -24,11 +25,20 @@ public class DuplicataController {
 
     private final OperacaoService operacaoService;
 
-    @GetMapping
-    public ResponseEntity<List<DuplicataResponseDto>> listarTudo() {
-        List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas();
-        return ResponseEntity.ok(lista);
-    }
+   @GetMapping
+public ResponseEntity<List<DuplicataResponseDto>> listarTudo(
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataOpInicio,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataOpFim,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataVencInicio,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataVencFim,
+        @RequestParam(required = false) String sacado,
+        @RequestParam(required = false) String nfCte,
+        @RequestParam(required = false) BigDecimal valor,
+        @RequestParam(required = false) String status
+) {
+    List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas(dataOpInicio, dataOpFim, dataVencInicio, dataVencFim, sacado, nfCte, valor, status);
+    return ResponseEntity.ok(lista);
+}
 
       @PostMapping("/{id}/liquidar")
     public ResponseEntity<Void> liquidar(
