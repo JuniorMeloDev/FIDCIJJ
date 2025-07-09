@@ -1,7 +1,9 @@
 package bordero.demo.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -29,4 +31,8 @@ public class Sacado {
 
     @ManyToMany(mappedBy = "sacados")
     private Set<Cliente> clientes;
+
+    @OneToMany(mappedBy = "sacado", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonManagedReference
+    private List<CondicaoPagamento> condicoesPagamento;
 }

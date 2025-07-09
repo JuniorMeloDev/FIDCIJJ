@@ -1,26 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { formatBRLNumber } from '@/app/utils/formatters';
-import Pagination from '../components/Pagination';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
+import Pagination from '@/app/components/Pagination';
+import LancamentoModal from '@/app/components/LancamentoModal';
+import FiltroLateral from '@/app/components/FiltroLateral'; // 
+import Notification from '@/app/components/Notification'; // 
 
-const ITEMS_PER_PAGE = 10;
-
-// Função para associar cores a cada conta bancária
-const getContaColor = (contaNome) => {
-    switch (contaNome?.toLowerCase()) {
-        case 'itaú':
-            return 'bg-orange-500';
-        case 'inter':
-            return 'bg-orange-600';
-        case 'bnb':
-            return 'bg-blue-600';
-        case 'safra':
-            return 'bg-yellow-500';
-        default:
-            return 'bg-gray-500';
-    }
-};
+const ITEMS_PER_PAGE = 7;
 
 export default function FluxoCaixaPage() {
     const [movimentacoes, setMovimentacoes] = useState([]);
@@ -28,22 +15,28 @@ export default function FluxoCaixaPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
+    const [notification, setNotification] = useState({ message: '', type: '' }); // Estado para a notificação
 
-    const fetchData = async () => {
+    const [filters, setFilters] = useState({
+        dataInicio: '', dataFim: '',
+        contaBancaria: '', descricao: ''
+    });
+
+    const empresas = ["Recife", "Transrec", "PE"];
+
+    const showNotification = (message, type) => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification({ message: '', type: '' }), 5000);
+    };
+
+    const fetchData = useCallback(async () => {
+        // ... (esta função continua igual)
         setLoading(true);
         try {
-            // Busca os dois conjuntos de dados em paralelo para mais eficiência
-            const [movResponse, saldosResponse] = await Promise.all([
-                fetch('http://localhost:8080/api/movimentacoes-caixa'),
-                fetch('http://localhost:8080/api/dashboard/saldos')
-            ]);
-
-            if (!movResponse.ok || !saldosResponse.ok) {
-                throw new Error('Falha ao buscar os dados.');
-            }
-
-            const movData = await movResponse.json();
-            const saldosData = await saldosResponse.json();
+            const movPromise = fetch('http://localhost:8080/api/movimentacoes-caixa').then(res => res.json());
+            const saldosPromise = fetch('http://localhost:8080/api/dashboard/saldos').then(res => res.json());
+            const [movData, saldosData] = await Promise.all([movPromise, saldosPromise]);
             setMovimentacoes(movData);
             setSaldos(saldosData);
         } catch (err) {
@@ -51,118 +44,148 @@ export default function FluxoCaixaPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchData();
-    }, []);
-    
-    const handleExcluir = async (movId) => {
-        if (!window.confirm("Tem a certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.")) {
-            return;
+    }, [fetchData]);
+
+    const filteredMovimentacoes = useMemo(() => {
+        // ... (esta função continua igual)
+        return movimentacoes.filter(m => {
+            const dataInicioMatch = !filters.dataInicio || new Date(m.dataMovimento) >= new Date(filters.dataInicio);
+            const dataFimMatch = !filters.dataFim || new Date(m.dataMovimento) <= new Date(filters.dataFim);
+            const contaMatch = !filters.contaBancaria || m.contaBancaria === filters.contaBancaria;
+            const descricaoMatch = !filters.descricao || m.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
+            return dataInicioMatch && dataFimMatch && contaMatch && descricaoMatch;
+        });
+    }, [filters, movimentacoes]);
+
+    const movimentacoesComSaldo = useMemo(() => {
+        // ... (esta função continua igual)
+        const reversedMovs = [...filteredMovimentacoes].reverse();
+        let saldoAcumulado = 0;
+        if (filters.dataInicio) {
+            saldoAcumulado = movimentacoes
+                .filter(m => new Date(m.dataMovimento) < new Date(filters.dataInicio) && (!filters.contaBancaria || m.contaBancaria === filters.contaBancaria))
+                .reduce((sum, mov) => sum + mov.valor, 0);
         }
+        const processedMovs = reversedMovs.map(mov => {
+            saldoAcumulado += mov.valor;
+            return { ...mov, saldo: saldoAcumulado };
+        });
+        return processedMovs.reverse();
+    }, [filteredMovimentacoes, movimentacoes, filters.dataInicio, filters.contaBancaria]);
+
+    const handleFilterChange = (e) => {
+        setCurrentPage(1);
+        setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const clearFilters = () => {
+        setCurrentPage(1);
+        setFilters({ dataInicio: '', dataFim: '', contaBancaria: '', descricao: '' });
+    };
+
+    // FUNÇÃO ATUALIZADA para mostrar a notificação
+    const handleSaveLancamento = async (lancamento) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/movimentacoes-caixa/${movId}`, {
-                method: 'DELETE',
+            const response = await fetch('http://localhost:8080/api/lancamentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(lancamento),
             });
             if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(errorData || 'Falha ao excluir o lançamento.');
+                const errorText = await response.text();
+                throw new Error(errorText || 'Falha ao criar o lançamento.');
             }
-            // Recarrega todos os dados para garantir que os saldos sejam atualizados corretamente
-            await fetchData(); 
+            showNotification('Lançamento salvo com sucesso!', 'success');
+            await fetchData(); // Recarrega os dados para refletir a nova entrada
+            return true;
         } catch (err) {
-            alert(err.message);
+            console.error(err);
+            showNotification(err.message, 'error'); // Mostra a notificação de erro
+            return false;
         }
     };
-
-       const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    };
-
-    // Lógica para a paginação
+    
+    const totalGeral = movimentacoesComSaldo.length > 0 ? movimentacoesComSaldo[0].saldo : 0;
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
-    const currentItems = movimentacoes.slice(indexOfFirstItem, indexOfLastItem);
-
+    const currentItems = movimentacoesComSaldo.slice(indexOfFirstItem, indexOfLastItem);
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
     if (loading) return <div className="text-center p-10">A carregar...</div>;
     if (error) return <div className="text-center p-10 text-red-500">Erro: {error}</div>;
 
-    const totalGeral = saldos.reduce((acc, conta) => acc + conta.saldo, 0);
-
     return (
-        <main className="p-4 sm:p-6 lg:p-8">
-            <header className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Fluxo de Caixa</h1>
-                <p className="text-sm text-gray-600 mt-1">Todas as entradas e saídas financeiras.</p>
-            </header>
-
-            {/* Seção de Resumo de Saldos */}
-            <section className="mb-8">
-                <h2 className="text-xl font-semibold text-gray-700 mb-4">Saldos Atuais</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                    {saldos.map((conta) => (
-                        <div key={conta.contaBancaria} className={`${getContaColor(conta.contaBancaria)} text-white p-6 rounded-lg shadow-lg`}>
-                            <h3 className="text-lg font-semibold opacity-80">{conta.contaBancaria}</h3>
-                            <p className="text-3xl font-bold mt-2">{formatBRLNumber(conta.saldo)}</p>
+        <>
+            <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
+            <LancamentoModal 
+                isOpen={isLancamentoModalOpen}
+                onClose={() => setIsLancamentoModalOpen(false)}
+                onSave={handleSaveLancamento}
+                contas={saldos}
+                empresas={empresas}
+            />
+            <main className="p-4 sm:p-6 flex flex-col h-full">
+                <header className="mb-4">
+                    <h1 className="text-2xl font-bold text-gray-800">Conciliação Bancária</h1>
+                    <p className="text-sm text-gray-600">Visualize e concilie suas movimentações financeiras.</p>
+                </header>
+                <div className="flex-grow flex flex-col lg:flex-row gap-6">
+                    <FiltroLateral 
+                        filters={filters}
+                        onFilterChange={handleFilterChange}
+                        onApply={() => setCurrentPage(1)}
+                        onClear={clearFilters}
+                        saldos={saldos}
+                    />
+                    <div className="flex-grow bg-white p-4 rounded-lg shadow-md flex flex-col">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2">
+                            <div>
+                                <span className="text-sm text-gray-500">Saldo Final do Período:</span>
+                                <p className={`text-xl font-bold ${totalGeral >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+                                    {formatBRLNumber(totalGeral)}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setIsLancamentoModalOpen(true)}
+                                className="bg-green-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-700"
+                            >
+                                Novo Lançamento
+                            </button>
                         </div>
-                    ))}
-                    <div className="bg-gray-800 text-white p-6 rounded-lg shadow-lg">
-                        <h3 className="text-lg font-semibold text-gray-300">Total Geral</h3>
-                        <p className="text-3xl font-bold mt-2">{formatBRLNumber(totalGeral)}</p>
+                        <div className="overflow-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-1/5">Data</th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-2/5">Descrição</th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-1/5">Valor</th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-1/5">Saldo</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {currentItems.map((mov) => (
+                                        <tr key={mov.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600">{formatDate(mov.dataMovimento)}</td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{mov.descricao}</td>
+                                            <td className={`px-4 py-2 whitespace-nowrap text-sm font-semibold text-right ${mov.valor >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {mov.valor > 0 ? '+' : ''}{formatBRLNumber(mov.valor)}
+                                            </td>
+                                            <td className={`px-4 py-2 whitespace-nowrap text-sm font-semibold text-right ${mov.saldo >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+                                                {formatBRLNumber(mov.saldo)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <Pagination totalItems={filteredMovimentacoes.length} itemsPerPage={ITEMS_PER_PAGE} currentPage={currentPage} onPageChange={paginate} />
                     </div>
                 </div>
-            </section>
-
-            {/* Tabela de Movimentações */}
-            <div className="bg-white p-4 rounded-lg shadow-md">
-                <h2 className="text-xl font-semibold mb-4">Últimas Movimentações</h2>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
-                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conta</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
-                                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {currentItems.map((mov) => (
-                                <tr key={mov.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-600">{formatDate(mov.dataMovimento)}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{mov.descricao}</td>
-                                    <td className={`px-4 py-2 whitespace-nowrap text-sm font-semibold text-right ${mov.valor > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {mov.valor > 0 ? '+' : ''}{formatBRLNumber(mov.valor)}
-                                    </td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-600">{mov.contaBancaria}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-600">{mov.empresaAssociada}</td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-center">
-                                        {(mov.categoria.includes('Avulsa') || mov.categoria.includes('Transferencia')) && (
-                                            <button onClick={() => handleExcluir(mov.id)} className="text-red-500 hover:text-red-700 font-bold" title="Excluir Lançamento">
-                                                &times;
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                             {movimentacoes.length === 0 && (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-10 text-gray-500">Nenhuma movimentação encontrada.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                <Pagination totalItems={movimentacoes.length} itemsPerPage={ITEMS_PER_PAGE} currentPage={currentPage} onPageChange={paginate} />
-            </div>
-        </main>
+            </main>
+        </>
     );
 }
-
-

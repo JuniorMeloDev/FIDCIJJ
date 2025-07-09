@@ -1,10 +1,12 @@
 package bordero.demo.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -21,8 +23,22 @@ public class Cliente {
 
     @Column(unique = true)
     private String cnpj;
+    
+    // --- NOVOS CAMPOS (iguais ao Sacado) ---
+    private String endereco;
+    private String bairro;
+    private String municipio;
+    private String uf;
+    private String fone;
+    private String ie;
+    private String cep;
 
-    // Relação com Sacados
+    // --- NOVA RELAÇÃO COM CONTAS BANCÁRIAS ---
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<ContaBancaria> contasBancarias;
+
+    // Relação com Sacados (sem alterações)
     @ManyToMany
     @JoinTable(
         name = "cliente_sacado",

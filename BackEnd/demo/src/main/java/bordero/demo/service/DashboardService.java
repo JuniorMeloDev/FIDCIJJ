@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -18,4 +19,13 @@ public class DashboardService {
     public List<SaldoContaDto> getSaldosPorConta() {
         return movimentacaoCaixaRepository.findSaldosPorConta();
     }
+
+    @Transactional(readOnly = true)
+public List<SaldoContaDto> getSaldosPorContaAteData(LocalDate data) {
+    // Se a data não for fornecida, retorna o saldo atual
+    if (data == null) {
+        return getSaldosPorConta();
+    }
+    return movimentacaoCaixaRepository.findSaldosPorContaAteData(data);
+}
 }

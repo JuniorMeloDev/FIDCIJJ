@@ -2,6 +2,7 @@ package bordero.demo.api.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,4 +17,5 @@ public class SacadoDto {
     private String fone;
     private String ie;
     private String cep;
+    private List<CondicaoPagamentoDto> condicoesPagamento;
 }
