@@ -20,4 +20,5 @@ public class ClienteDto {
     private String cep;
     private List<ContaBancariaDto> contasBancarias;
     private Set<SacadoDto> sacados;
+    private String ramoDeAtividade;
 }

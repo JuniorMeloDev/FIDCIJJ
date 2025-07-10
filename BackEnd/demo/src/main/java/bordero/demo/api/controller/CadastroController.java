@@ -2,6 +2,7 @@ package bordero.demo.api.controller;
 
 import bordero.demo.api.dto.ClienteDto;
 import bordero.demo.api.dto.SacadoDto;
+import bordero.demo.api.dto.TipoOperacaoDto;
 import bordero.demo.service.CadastroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,30 @@ public class CadastroController {
     @DeleteMapping("/sacados/{id}")
     public ResponseEntity<Void> excluirSacado(@PathVariable Long id) {
         cadastroService.excluirSacado(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/tipos-operacao")
+    public ResponseEntity<TipoOperacaoDto> criarTipoOperacao(@Valid @RequestBody TipoOperacaoDto dto) {
+        TipoOperacaoDto tipoOperacaoCriada = cadastroService.criarTipoOperacao(dto);
+        return new ResponseEntity<>(tipoOperacaoCriada, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/tipos-operacao")
+    public ResponseEntity<List<TipoOperacaoDto>> listarTiposOperacao() {
+        List<TipoOperacaoDto> tipos = cadastroService.listarTiposOperacao();
+        return ResponseEntity.ok(tipos);
+    }
+
+    @PutMapping("/tipos-operacao/{id}")
+    public ResponseEntity<TipoOperacaoDto> atualizarTipoOperacao(@PathVariable Long id, @Valid @RequestBody TipoOperacaoDto dto) {
+        TipoOperacaoDto tipoOperacaoAtualizada = cadastroService.atualizarTipoOperacao(id, dto);
+        return ResponseEntity.ok(tipoOperacaoAtualizada);
+    }
+
+    @DeleteMapping("/tipos-operacao/{id}")
+    public ResponseEntity<Void> excluirTipoOperacao(@PathVariable Long id) {
+        cadastroService.excluirTipoOperacao(id);
         return ResponseEntity.noContent().build();
     }
 }

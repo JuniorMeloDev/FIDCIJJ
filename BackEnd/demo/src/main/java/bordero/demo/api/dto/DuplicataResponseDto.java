@@ -1,6 +1,5 @@
 package bordero.demo.api.dto;
 
-import bordero.demo.domain.entity.TipoOperacao;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -18,7 +17,7 @@ public class DuplicataResponseDto {
     private BigDecimal valorJuros;
     private String clienteSacado;
     private LocalDate dataVencimento;
-    private TipoOperacao tipoOperacao;
+    private String tipoOperacaoNome; 
     private String statusRecebimento;
     private LocalDate dataLiquidacao;
     private String contaLiquidacao;

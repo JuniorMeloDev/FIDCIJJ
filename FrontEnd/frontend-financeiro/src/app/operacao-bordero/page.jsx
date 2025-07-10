@@ -1,36 +1,41 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import AdicionarNotaFiscalForm from '@/app/components/AdicionarNotaFiscalForm';
 import OperacaoDetalhes from '@/app/components/OperacaoDetalhes';
 import OperacaoHeader from '@/app/components/OperacaoHeader';
 import Notification from '@/app/components/Notification';
 import DescontoModal from '@/app/components/DescontoModal';
-import ConfirmEmailModal from '@/app/components/ConfirmEmailModal'; 
 import { formatBRLInput, parseBRL } from '@/app/utils/formatters';
-
 
 const API_URL = 'http://localhost:8080/api';
 
 export default function OperacaoBorderoPage() {
     const [dataOperacao, setDataOperacao] = useState(new Date().toISOString().split('T')[0]);
-    const [tipoOperacao, setTipoOperacao] = useState('');
+    const [tipoOperacaoId, setTipoOperacaoId] = useState('');
+    const [tiposOperacao, setTiposOperacao] = useState([]);
     const [empresaCedente, setEmpresaCedente] = useState('');
-    const [novaNf, setNovaNf] = useState({
-        nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '', prazos: '', peso: '',
-    });
+    const [novaNf, setNovaNf] = useState({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '', prazos: '' });
     const [notasFiscais, setNotasFiscais] = useState([]);
     const [descontos, setDescontos] = useState([]);
-    
-    const [isDescontoModalOpen, setIsDescontoModalOpen] = useState(false);
-    const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isSendingEmail, setIsSendingEmail] = useState(false);
-    const [lastSavedOpId, setLastSavedOpId] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
-    
+    const [isLoading, setIsLoading] = useState(false)
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        const fetchTiposOperacao = async () => {
+            try {
+                const response = await fetch(`${API_URL}/cadastros/tipos-operacao`);
+                if (!response.ok) throw new Error('Falha ao carregar tipos de operação.');
+                setTiposOperacao(await response.json());
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        };
+        fetchTiposOperacao();
+    }, []);
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -46,7 +51,7 @@ export default function OperacaoBorderoPage() {
         formData.append('file', file);
 
         try {
-            const response = await fetch(`${API_URL}/import/xml`, {
+            const response = await fetch(`${API_URL}/upload/nfe-xml`, {
                 method: 'POST',
                 body: formData,
             });
@@ -71,12 +76,12 @@ export default function OperacaoBorderoPage() {
                 dataNf: data.dataEmissao ? data.dataEmissao.split('T')[0] : '',
                 valorNf: data.valorTotal ? formatBRLInput(String(data.valorTotal * 100)) : '',
                 clienteSacado: data.nomeDestinatario || '',
-                parcelas: data.parcelas && data.parcelas.length > 0 ? String(data.parcelas.length) : '1',
+                parcelas: data.parcelas ? String(data.parcelas.length) : '1',
                 prazos: prazosString,
                 peso: '',
             });
             setEmpresaCedente(data.nomeEmitente || '');
-            showNotification("Dados preenchidos! Verifique os prazos e complete as informações.", "success");
+            showNotification("Dados da NF preenchidos com sucesso!", "success");
 
         } catch (error) {
             showNotification(error.message, 'error');
@@ -86,43 +91,24 @@ export default function OperacaoBorderoPage() {
             }
         }
     };
-
-    const handleAddNotaFiscal = async (e) => {
+    
+    const handleAddNotaFiscal = (e) => {
         e.preventDefault();
-        if (!tipoOperacao || !dataOperacao) {
-            showNotification('Por favor, preencha a Data e o Tipo de Operação primeiro.', 'error');
+        if (!tipoOperacaoId || !dataOperacao || !empresaCedente) {
+            showNotification('Preencha os Dados da Operação (Data, Tipo e Cedente) primeiro.', 'error');
             return;
         }
-        setIsLoading(true);
 
-        const valorNfFloat = parseBRL(novaNf.valorNf);
-        const body = {
-            dataOperacao, tipoOperacao, dataNf: novaNf.dataNf, valorNf: valorNfFloat,
-            parcelas: parseInt(novaNf.parcelas) || 0, prazos: novaNf.prazos,
-            peso: tipoOperacao === 'A_VISTA' ? parseFloat(novaNf.peso) : undefined,
+        const nfParaAdicionar = {
+            id: Date.now(),
+            ...novaNf,
+            valorNf: parseBRL(novaNf.valorNf),
+            parcelas: parseInt(novaNf.parcelas) || 0,
         };
-
-        try {
-            const response = await fetch(`${API_URL}/operacoes/calcular-juros`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-            });
-            if (!response.ok) throw new Error('Falha ao calcular os juros.');
-            const calculoResult = await response.json();
-            const nfParaAdicionar = {
-                id: Date.now(), ...novaNf, valorNf: valorNfFloat,
-                parcelas: parseInt(novaNf.parcelas) || 0,
-                peso: tipoOperacao === 'A_VISTA' ? parseFloat(novaNf.peso) : undefined,
-                jurosCalculado: calculoResult.totalJuros, valorLiquidoCalculado: calculoResult.valorLiquido,
-            };
-            setNotasFiscais([...notasFiscais, nfParaAdicionar]);
-            setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '', prazos: '', peso: '' });
-        } catch (error) {
-            showNotification(error.message, 'error');
-        } finally {
-            setIsLoading(false);
-        }
+        setNotasFiscais([...notasFiscais, nfParaAdicionar]);
+        setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '', prazos: '' });
     };
-    
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name === 'valorNf') {
@@ -132,11 +118,17 @@ export default function OperacaoBorderoPage() {
         }
     };
 
-    const handleSaveDesconto = (novoDesconto) => setDescontos([...descontos, novoDesconto]);
-    const handleRemoveDesconto = (id) => setDescontos(descontos.filter(d => d.id !== id));
+    const handleSaveDesconto = (novoDesconto) => {
+        setDescontos([...descontos, novoDesconto]);
+    };
+    
+    const handleRemoveDesconto = (id) => {
+        setDescontos(descontos.filter(d => d.id !== id));
+    };
+
     const handleLimparTudo = () => {
         setDataOperacao(new Date().toISOString().split('T')[0]);
-        setTipoOperacao('');
+        setTipoOperacaoId('');
         setEmpresaCedente('');
         setNotasFiscais([]);
         setDescontos([]);
@@ -150,25 +142,37 @@ export default function OperacaoBorderoPage() {
             return;
         }
         setIsSaving(true);
+        
         const payload = {
-            dataOperacao, tipoOperacao, empresaCedente,
+            dataOperacao,
+            tipoOperacaoId: parseInt(tipoOperacaoId),
+            empresaCedente,
             descontos: descontos.map(d => ({ descricao: d.descricao, valor: d.valor })),
             notasFiscais: notasFiscais.map(nf => ({
-                nfCte: nf.nfCte, dataNf: nf.dataNf, valorNf: nf.valorNf,
-                clienteSacado: nf.clienteSacado, parcelas: nf.parcelas,
-                prazos: nf.prazos, peso: nf.peso,
+                nfCte: nf.nfCte,
+                dataNf: nf.dataNf,
+                valorNf: nf.valorNf,
+                clienteSacado: nf.clienteSacado,
+                parcelas: nf.parcelas,
+                prazos: nf.prazos
             })),
         };
+
         try {
             const response = await fetch(`${API_URL}/operacoes/salvar`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error('Ocorreu um erro ao guardar a operação.');
+
+            if (!response.ok) {
+                 const errorText = await response.text();
+                 throw new Error(errorText || 'Ocorreu um erro ao guardar a operação.');
+            }
+
             const operacaoId = await response.json();
-            showNotification(`Operação #${operacaoId} guardada com sucesso!`, 'success');
+            showNotification(`Operação ${operacaoId} guardada com sucesso!`, 'success');
             handleLimparTudo();
-            setLastSavedOpId(operacaoId);
-            setIsEmailConfirmOpen(true);
         } catch (error) {
             showNotification(error.message, 'error');
         } finally {
@@ -176,46 +180,28 @@ export default function OperacaoBorderoPage() {
         }
     };
     
-    const handleSendConfirmationEmail = async (destinatarios) => {
-        setIsSendingEmail(true);
-        try {
-            await fetch(`${API_URL}/operacoes/${lastSavedOpId}/enviar-email`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinatarios }),
-            });
-            showNotification("E-mail(s) enviado(s) com sucesso!", "success");
-        } catch (error) {
-            showNotification("Falha ao enviar e-mail.", "error");
-        } finally {
-            setIsSendingEmail(false);
-            setIsEmailConfirmOpen(false);
-            setLastSavedOpId(null);
-        }
-    };
-    
     const totais = useMemo(() => {
+        // Como o cálculo de juros agora depende do sacado e do tipo,
+        // ele é feito no backend. O frontend apenas soma os valores totais.
         const valorTotalBruto = notasFiscais.reduce((acc, nf) => acc + nf.valorNf, 0);
-        const desagioTotal = notasFiscais.reduce((acc, nf) => acc + nf.jurosCalculado, 0);
+        // Aqui, precisaríamos que o backend retornasse os juros calculados para cada NF.
+        // Por agora, vamos deixar como zero, pois a lógica final está no backend.
+        const desagioTotal = 0;
         const totalOutrosDescontos = descontos.reduce((acc, d) => acc + d.valor, 0);
-        let liquidoOperacao;
-        if (tipoOperacao === 'A_VISTA') {
-            liquidoOperacao = valorTotalBruto - totalOutrosDescontos;
-        } else {
-            liquidoOperacao = valorTotalBruto - desagioTotal - totalOutrosDescontos;
-        }
+        const liquidoOperacao = valorTotalBruto - desagioTotal - totalOutrosDescontos;
         return { valorTotalBruto, desagioTotal, totalOutrosDescontos, liquidoOperacao };
-    }, [notasFiscais, descontos, tipoOperacao]);
+    }, [notasFiscais, descontos]);
 
     return (
         <>
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
-            <DescontoModal isOpen={isDescontoModalOpen} onClose={() => setIsDescontoModalOpen(false)} onSave={handleSaveDesconto} />
-            <ConfirmEmailModal isOpen={isEmailConfirmOpen} onClose={() => setIsEmailConfirmOpen(false)} onSend={handleSendConfirmationEmail} isSending={isSendingEmail} tipoOperacao={tipoOperacao} />
+            <DescontoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveDesconto} />
             
-            <main className="max-w-7xl mx-auto p-4">
-    <header className="mb-4 flex justify-between items-center">
+            <main className="p-4 sm:p-6 flex flex-col h-full">
+                <header className="mb-4 flex justify-between items-center">
                     <div>
-                        <h1 className="text-4xl font-bold text-gray-900">Borderô de Operação</h1>
-                        <p className="text-lg text-gray-600 mt-1">Preencha os dados abaixo ou importe um ficheiro XML.</p>
+                        <h1 className="text-2xl font-bold text-gray-800">Criar Borderô</h1>
+                        <p className="text-sm text-gray-600 mt-1">Preencha os dados abaixo ou importe um XML.</p>
                     </div>
                     <div>
                         <input
@@ -230,16 +216,39 @@ export default function OperacaoBorderoPage() {
                             onClick={() => fileInputRef.current.click()}
                             className="bg-gray-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-gray-800"
                         >
-                            Importar Ficheiro XML
+                            Importar NF-e (XML)
                         </button>
                     </div>
                 </header>
 
-                <OperacaoHeader dataOperacao={dataOperacao} setDataOperacao={setDataOperacao} tipoOperacao={tipoOperacao} setTipoOperacao={setTipoOperacao} empresaCedente={empresaCedente} setEmpresaCedente={setEmpresaCedente} />
-                <AdicionarNotaFiscalForm novaNf={novaNf} handleInputChange={handleInputChange} handleAddNotaFiscal={handleAddNotaFiscal} tipoOperacao={tipoOperacao} isLoading={isLoading} />
-                <OperacaoDetalhes notasFiscais={notasFiscais} descontos={descontos} totais={totais} handleSalvarOperacao={handleSalvarOperacao} handleLimparTudo={handleLimparTudo} isSaving={isSaving} onAddDescontoClick={() => setIsDescontoModalOpen(true)} onRemoveDesconto={handleRemoveDesconto} />
+                <OperacaoHeader 
+                    dataOperacao={dataOperacao}
+                    setDataOperacao={setDataOperacao}
+                    tipoOperacaoId={tipoOperacaoId}
+                    setTipoOperacaoId={setTipoOperacaoId}
+                    tiposOperacao={tiposOperacao}
+                    empresaCedente={empresaCedente}
+                    setEmpresaCedente={setEmpresaCedente}
+                />
+
+                <AdicionarNotaFiscalForm 
+                    novaNf={novaNf}
+                    handleInputChange={handleInputChange}
+                    handleAddNotaFiscal={handleAddNotaFiscal}
+                    isLoading={isLoading}
+                />
+
+                <OperacaoDetalhes 
+                    notasFiscais={notasFiscais}
+                    descontos={descontos}
+                    totais={totais}
+                    handleSalvarOperacao={handleSalvarOperacao}
+                    handleLimparTudo={handleLimparTudo}
+                    isSaving={isSaving}
+                    onAddDescontoClick={() => setIsModalOpen(true)}
+                    onRemoveDesconto={handleRemoveDesconto}
+                />
             </main>
         </>
     );
 }
-

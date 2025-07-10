@@ -23,6 +23,10 @@ public class Cliente {
 
     @Column(unique = true)
     private String cnpj;
+
+    @Column(name = "ramo_atividade")
+    private String ramoDeAtividade;
+
     
     // --- NOVOS CAMPOS (iguais ao Sacado) ---
     private String endereco;

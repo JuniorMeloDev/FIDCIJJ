@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-
 @RestController
 @RequestMapping("/api/duplicatas")
 @RequiredArgsConstructor
@@ -25,8 +24,8 @@ public class DuplicataController {
 
     private final OperacaoService operacaoService;
 
-   @GetMapping
-public ResponseEntity<List<DuplicataResponseDto>> listarTudo(
+    @GetMapping
+    public ResponseEntity<List<DuplicataResponseDto>> listarTudo(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataOpInicio,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataOpFim,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataVencInicio,
@@ -35,19 +34,19 @@ public ResponseEntity<List<DuplicataResponseDto>> listarTudo(
         @RequestParam(required = false) String nfCte,
         @RequestParam(required = false) BigDecimal valor,
         @RequestParam(required = false) String status
-) {
-    List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas(dataOpInicio, dataOpFim, dataVencInicio, dataVencFim, sacado, nfCte, valor, status);
-    return ResponseEntity.ok(lista);
-}
+    ) {
+        List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas(dataOpInicio, dataOpFim, dataVencInicio, dataVencFim, sacado, nfCte, valor, status);
+        return ResponseEntity.ok(lista);
+    }
 
       @PostMapping("/{id}/liquidar")
-    public ResponseEntity<Void> liquidar(
+    public ResponseEntity<DuplicataResponseDto> liquidar(
         @PathVariable Long id, 
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataLiquidacao,
-        @RequestParam(required = false) BigDecimal jurosMora // Parâmetro opcional adicionado
+        @RequestParam(required = false) BigDecimal jurosMora
     ) {
-        operacaoService.liquidarDuplicata(id, dataLiquidacao, jurosMora);
-        return ResponseEntity.ok().build();
+        DuplicataResponseDto duplicataAtualizada = operacaoService.liquidarDuplicata(id, dataLiquidacao, jurosMora);
+        return ResponseEntity.ok(duplicataAtualizada);
     }
 
      @PostMapping("/{id}/estornar")

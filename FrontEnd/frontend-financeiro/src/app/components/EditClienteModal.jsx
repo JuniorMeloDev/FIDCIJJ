@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
-import AutocompleteInput from './AutocompleteInput'; // Importa o componente de autocomplete
+import AutocompleteInput from './AutocompleteInput';
 
 export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onDelete, showNotification }) {
     const initialState = {
-        nome: '', cnpj: '', ie: '', cep: '', endereco: '', bairro: '', municipio: '', uf: '', fone: '', contasBancarias: []
+        nome: '', cnpj: '', ie: '', cep: '', endereco: '', bairro: '', municipio: '', uf: '', fone: '', contasBancarias: [], ramoDeAtividade: ''
     };
     const [formData, setFormData] = useState(initialState);
     const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
@@ -76,7 +76,6 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
         setFormData(prev => ({ ...prev, [name]: formattedValue }));
     };
 
-    // Função para alterar qualquer campo de uma conta bancária
     const handleContaChange = (index, name, value) => {
         const contas = [...formData.contasBancarias];
         if (contas[index]) {
@@ -130,11 +129,19 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
                     {dataFetched && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label className="block text-xs font-bold text-gray-600">Ramo de Atividade</label>
+                                    <select name="ramoDeAtividade" value={formData.ramoDeAtividade || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm">
+                                        <option value="">Selecione...</option>
+                                        <option value="Transportes">Transportes</option>
+                                        <option value="Industria">Indústria</option>
+                                        <option value="Comercio">Comércio</option>
+                                        <option value="Servicos">Serviços</option>
+                                        <option value="Outro">Outro</option>
+                                    </select>
+                                </div>
                                 <div><label className="block text-xs font-bold text-gray-600">Inscrição Estadual</label><input type="text" name="ie" value={formData.ie || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>
                                 <div><label className="block text-xs font-bold text-gray-600">Telefone</label><input type="text" name="fone" value={formData.fone || ''} onChange={(e) => setFormData(prev => ({...prev, fone: formatTelefone(e.target.value)}))} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>
                                 <div><label className="block text-xs font-bold text-gray-600">CEP</label><input type="text" name="cep" value={formData.cep || ''} onChange={(e) => setFormData(prev => ({...prev, cep: formatCep(e.target.value)}))} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-600">Endereço</label><input type="text" name="endereco" value={formData.endereco || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>
                                 <div><label className="block text-xs font-bold text-gray-600">Bairro</label><input type="text" name="bairro" value={formData.bairro || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>
                                 <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-600">Município</label><input type="text" name="municipio" value={formData.municipio || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/></div>

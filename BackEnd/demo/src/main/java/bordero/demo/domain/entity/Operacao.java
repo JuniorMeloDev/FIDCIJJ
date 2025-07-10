@@ -18,17 +18,20 @@ public class Operacao {
     @Column(nullable = false)
     private LocalDate dataOperacao;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tipo_operacao_id", nullable = false)
     private TipoOperacao tipoOperacao;
 
-    @Column(nullable = false)
-    private String empresaCedente;
+    // --- CAMPO ALTERADO ---
+    // Agora é uma relação Muitos-para-Um com a entidade Cliente
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = false)
+    private Cliente cliente;
+    // --- FIM DA ALTERAÇÃO ---
 
     @OneToMany(mappedBy = "operacao", cascade = CascadeType.ALL)
     private List<Duplicata> duplicatas;
     
-    // RELACIONAMENTO ADICIONADO
     @OneToMany(mappedBy = "operacao", cascade = CascadeType.ALL)
     private List<Desconto> descontos;
 
@@ -39,4 +42,9 @@ public class Operacao {
     private BigDecimal valorTotalJuros;
     private BigDecimal valorTotalDescontos;
     private BigDecimal valorLiquido;
+
+    // Adicionado um getter manual para manter a compatibilidade com o DTO
+    public String getEmpresaCedente() {
+        return cliente != null ? cliente.getNome() : null;
+    }
 }

@@ -4,9 +4,11 @@ import bordero.demo.api.dto.ClienteDto;
 import bordero.demo.api.dto.CondicaoPagamentoDto;
 import bordero.demo.api.dto.ContaBancariaDto;
 import bordero.demo.api.dto.SacadoDto;
+import bordero.demo.api.dto.TipoOperacaoDto;
 import bordero.demo.domain.entity.*;
 import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.domain.repository.SacadoRepository;
+import bordero.demo.domain.repository.TipoOperacaoRepository;
 import bordero.demo.service.xml.model.Dest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class CadastroService {
 
     private final ClienteRepository clienteRepository;
     private final SacadoRepository sacadoRepository;
+    private final TipoOperacaoRepository tipoOperacaoRepository;
 
     // --- MÉTODOS PARA CLIENTES ---
 
@@ -53,6 +56,7 @@ public class CadastroService {
         cliente.setFone(dto.getFone());
         cliente.setIe(dto.getIe());
         cliente.setCep(dto.getCep());
+        cliente.setRamoDeAtividade(dto.getRamoDeAtividade());
 
         if (cliente.getContasBancarias() == null) {
             cliente.setContasBancarias(new ArrayList<>());
@@ -82,12 +86,12 @@ public class CadastroService {
                 .collect(Collectors.toList());
     }
     
-    // --- MÉTODOS PARA SACADOS (COM A CORREÇÃO) ---
+    // --- MÉTODOS PARA SACADOS ---
 
     @Transactional
     public SacadoDto criarSacado(SacadoDto dto) {
         Sacado sacado = new Sacado();
-        updateSacadoFromDto(sacado, dto); // Usa o método auxiliar
+        updateSacadoFromDto(sacado, dto);
         Sacado sacadoSalvo = sacadoRepository.save(sacado);
         return toSacadoDto(sacadoSalvo);
     }
@@ -96,12 +100,11 @@ public class CadastroService {
     public SacadoDto atualizarSacado(Long id, SacadoDto dto) {
         Sacado sacado = sacadoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Sacado com ID " + id + " não encontrado."));
-        updateSacadoFromDto(sacado, dto); // Usa o método auxiliar
+        updateSacadoFromDto(sacado, dto);
         Sacado sacadoAtualizado = sacadoRepository.save(sacado);
         return toSacadoDto(sacadoAtualizado);
     }
 
-    // MÉTODO AUXILIAR CORRIGIDO PARA PROCESSAR AS CONDIÇÕES
     private void updateSacadoFromDto(Sacado sacado, SacadoDto dto) {
         sacado.setNome(dto.getNome());
         sacado.setCnpj(dto.getCnpj());
@@ -113,21 +116,19 @@ public class CadastroService {
         sacado.setIe(dto.getIe());
         sacado.setCep(dto.getCep());
 
-        if (sacado.getCondicoesPagamento() == null) {
-            sacado.setCondicoesPagamento(new ArrayList<>());
-        }
-        // Limpa as condições antigas para sincronizar com as novas enviadas
-        sacado.getCondicoesPagamento().clear();
-
         if (dto.getCondicoesPagamento() != null) {
-            dto.getCondicoesPagamento().forEach(condicaoDto -> {
-                CondicaoPagamento condicao = new CondicaoPagamento();
-                condicao.setTipoOperacao(condicaoDto.getTipoOperacao());
-                condicao.setTaxaJuros(condicaoDto.getTaxaJuros());
-                condicao.setPrazos(condicaoDto.getPrazos());
-                condicao.setSacado(sacado); // Associa a condição ao sacado
-                sacado.getCondicoesPagamento().add(condicao);
-            });
+        dto.getCondicoesPagamento().forEach(condicaoDto -> {
+            // Busca a entidade TipoOperacao pelo ID
+            TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(condicaoDto.getTipoOperacaoId())
+                .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + condicaoDto.getTipoOperacaoId() + " não encontrado."));
+
+            CondicaoPagamento condicao = new CondicaoPagamento();
+            condicao.setTipoOperacao(tipoOperacao); // Associa a entidade encontrada
+            condicao.setTaxaJuros(condicaoDto.getTaxaJuros());
+            condicao.setPrazos(condicaoDto.getPrazos());
+            condicao.setSacado(sacado);
+            sacado.getCondicoesPagamento().add(condicao);
+        });
         }
     }
 
@@ -135,11 +136,9 @@ public class CadastroService {
     public void excluirSacado(Long id) {
         Sacado sacado = sacadoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Sacado com ID " + id + " não encontrado."));
-        // Remove a associação deste sacado de todos os clientes vinculados
         for (Cliente cliente : sacado.getClientes()) {
             cliente.getSacados().remove(sacado);
         }
-        // Agora, exclui o sacado
         sacadoRepository.deleteById(id);
     }
 
@@ -147,6 +146,44 @@ public class CadastroService {
         return sacadoRepository.findAll().stream()
                 .map(this::toSacadoDto)
                 .collect(Collectors.toList());
+    }
+
+    // --- MÉTODOS PARA TIPOS DE OPERAÇÃO ---
+
+    @Transactional
+    public TipoOperacaoDto criarTipoOperacao(TipoOperacaoDto dto) {
+        TipoOperacao tipoOperacao = new TipoOperacao();
+        updateTipoOperacaoFromDto(tipoOperacao, dto);
+        TipoOperacao salvo = tipoOperacaoRepository.save(tipoOperacao);
+        return toTipoOperacaoDto(salvo);
+    }
+
+    @Transactional
+    public TipoOperacaoDto atualizarTipoOperacao(Long id, TipoOperacaoDto dto) {
+        TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + id + " não encontrado."));
+        updateTipoOperacaoFromDto(tipoOperacao, dto);
+        TipoOperacao atualizado = tipoOperacaoRepository.save(tipoOperacao);
+        return toTipoOperacaoDto(atualizado);
+    }
+
+    public List<TipoOperacaoDto> listarTiposOperacao() {
+        return tipoOperacaoRepository.findAll().stream()
+                .map(this::toTipoOperacaoDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void excluirTipoOperacao(Long id) {
+        tipoOperacaoRepository.deleteById(id);
+    }
+    
+    private void updateTipoOperacaoFromDto(TipoOperacao tipoOperacao, TipoOperacaoDto dto) {
+        tipoOperacao.setNome(dto.getNome());
+        tipoOperacao.setTaxaJuros(dto.getTaxaJuros());
+        tipoOperacao.setValorFixo(dto.getValorFixo());
+        tipoOperacao.setDescricao(dto.getDescricao());
+        tipoOperacao.setDespesasBancarias(dto.getDespesasBancarias());
     }
 
     // --- MÉTODOS PARA O PROCESSAMENTO DE XML ---
@@ -196,7 +233,6 @@ public class CadastroService {
         }
     }
 
-
     // --- CONVERSORES PARA DTO ---
 
     private ClienteDto toClienteDto(Cliente cliente) {
@@ -205,6 +241,7 @@ public class CadastroService {
                 .nome(cliente.getNome())
                 .cnpj(cliente.getCnpj())
                 .endereco(cliente.getEndereco())
+                .ramoDeAtividade(cliente.getRamoDeAtividade())
                 .bairro(cliente.getBairro())
                 .municipio(cliente.getMunicipio())
                 .uf(cliente.getUf())
@@ -250,9 +287,21 @@ public class CadastroService {
     private CondicaoPagamentoDto toCondicaoPagamentoDto(CondicaoPagamento condicao) {
         return CondicaoPagamentoDto.builder()
                 .id(condicao.getId())
-                .tipoOperacao(condicao.getTipoOperacao())
+                .tipoOperacaoId(condicao.getTipoOperacao().getId())
+            .tipoOperacaoNome(condicao.getTipoOperacao().getNome())
                 .taxaJuros(condicao.getTaxaJuros())
                 .prazos(condicao.getPrazos())
+                .build();
+    }
+    
+    private TipoOperacaoDto toTipoOperacaoDto(TipoOperacao tipoOperacao) {
+        return TipoOperacaoDto.builder()
+                .id(tipoOperacao.getId())
+                .nome(tipoOperacao.getNome())
+                .taxaJuros(tipoOperacao.getTaxaJuros())
+                .valorFixo(tipoOperacao.getValorFixo())
+                .despesasBancarias(tipoOperacao.getDespesasBancarias())
+                .descricao(tipoOperacao.getDescricao())
                 .build();
     }
 }

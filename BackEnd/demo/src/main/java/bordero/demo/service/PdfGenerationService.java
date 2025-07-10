@@ -90,7 +90,7 @@ public class PdfGenerationService {
     private void addTotaisSection(Document document, Operacao operacao) {
         document.add(new Paragraph("\n\n"));
         document.add(new Paragraph("Valor total dos Títulos: \t" + formatCurrency(operacao.getValorTotalBruto())));
-        document.add(new Paragraph("Deságio (" + operacao.getTipoOperacao().name() +"): \t" + formatCurrency(operacao.getValorTotalJuros())));
+        document.add(new Paragraph("Deságio (" + operacao.getTipoOperacao().getNome() +"): \t" + formatCurrency(operacao.getValorTotalJuros())));
         
         if (operacao.getDescontos() != null && !operacao.getDescontos().isEmpty()) {
             document.add(new Paragraph("Outros Descontos:").setBold());

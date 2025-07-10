@@ -6,10 +6,11 @@ import java.math.BigDecimal;
 
 @Data
 @Builder
-public class CondicaoPagamentoDto {
+public class TipoOperacaoDto {
     private Long id;
-    private Long tipoOperacaoId;
-    private String tipoOperacaoNome;
+    private String nome;
     private BigDecimal taxaJuros;
-    private String prazos;
+    private BigDecimal valorFixo;
+    private BigDecimal despesasBancarias;
+    private String descricao;
 }

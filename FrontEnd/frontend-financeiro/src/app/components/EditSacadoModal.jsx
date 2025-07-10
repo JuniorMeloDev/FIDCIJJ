@@ -3,15 +3,20 @@
 import { useState, useEffect } from 'react';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
 
+// Função para formatar o campo de taxa
 const formatTaxaInput = (value) => {
     if (!value) return '';
-    const cleanValue = String(value).replace(/\D/g, '');
-    if (cleanValue === '') return '';
-    const numberValue = Number(cleanValue) / 100;
-    return numberValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const cleanValue = String(value).replace(/[^\d,]/g, '');
+    return cleanValue;
 };
 
-export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDelete, showNotification }) {
+// Função para converter a string formatada de volta para um número
+const parseTaxa = (value) => {
+    if (!value) return 0;
+    return parseFloat(String(value).replace(',', '.'));
+}
+
+export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDelete, showNotification, tiposOperacao }) {
     const initialState = {
         nome: '', cnpj: '', ie: '', cep: '', endereco: '', bairro: '', municipio: '', uf: '', fone: '', condicoesPagamento: []
     };
@@ -26,7 +31,15 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                     ...c,
                     taxaJuros: c.taxaJuros ? String(c.taxaJuros).replace('.', ',') : ''
                 })) : [];
-                setFormData({ ...initialState, ...sacado, cnpj: formatCnpjCpf(sacado.cnpj), fone: formatTelefone(sacado.fone), cep: formatCep(sacado.cep), condicoesPagamento: formattedCondicoes });
+
+                setFormData({ 
+                    ...initialState,
+                    ...sacado,
+                    cnpj: sacado.cnpj ? formatCnpjCpf(sacado.cnpj) : '',
+                    fone: sacado.fone ? formatTelefone(sacado.fone) : '',
+                    cep: sacado.cep ? formatCep(sacado.cep) : '',
+                    condicoesPagamento: formattedCondicoes
+                });
                 setDataFetched(true);
             } else {
                 setFormData(initialState);
@@ -44,12 +57,25 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
         try {
             const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
             if (!response.ok) throw new Error('CNPJ não encontrado na base de dados externa.');
+            
             const data = await response.json();
-            setFormData(prev => ({ ...prev, nome: data.razao_social || '', fone: data.ddd_telefone_1 ? formatTelefone(`${data.ddd_telefone_1}${data.telefone_1 || ''}`) : '', cep: data.cep ? formatCep(data.cep) : '', endereco: `${data.logradouro || ''}, ${data.numero || ''}`, bairro: data.bairro || '', municipio: data.municipio || '', uf: data.uf || '', ie: '' }));
+            
+            setFormData(prev => ({
+                ...prev,
+                nome: data.razao_social || '',
+                fone: data.ddd_telefone_1 ? formatTelefone(`${data.ddd_telefone_1}${data.telefone_1 || ''}`) : '',
+                cep: data.cep ? formatCep(data.cep) : '',
+                endereco: `${data.logradouro || ''}, ${data.numero || ''}`,
+                bairro: data.bairro || '',
+                municipio: data.municipio || '',
+                uf: data.uf || '',
+                ie: '', 
+            }));
             setDataFetched(true);
+
         } catch (error) {
             if(showNotification) showNotification(error.message, 'error');
-            setDataFetched(true);
+            setDataFetched(true); 
         } finally {
             setIsFetchingCnpj(false);
         }
@@ -60,7 +86,9 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
         let formattedValue = value;
         if (name === 'cnpj') {
             formattedValue = formatCnpjCpf(value);
-            if (formattedValue.replace(/\D/g, '').length === 14) handleCnpjSearch(formattedValue);
+            if (formattedValue.replace(/\D/g, '').length === 14) {
+                handleCnpjSearch(formattedValue);
+            }
         }
         setFormData(prev => ({ ...prev, [name]: formattedValue }));
     };
@@ -70,21 +98,49 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
         const condicoes = [...formData.condicoesPagamento];
         if (condicoes[index]) {
             let finalValue = value;
-            if (name === 'taxaJuros') finalValue = formatTaxaInput(value);
+            if (name === 'taxaJuros') {
+                finalValue = formatTaxaInput(value);
+            }
             condicoes[index][name] = finalValue;
             setFormData(prev => ({ ...prev, condicoesPagamento: condicoes }));
         }
     };
 
-    const addCondicao = () => setFormData(prev => ({ ...prev, condicoesPagamento: [...prev.condicoesPagamento, { tipoOperacao: 'IJJ', taxaJuros: '', prazos: '' }] }));
-    const removeCondicao = (index) => { const condicoes = [...formData.condicoesPagamento]; condicoes.splice(index, 1); setFormData(prev => ({ ...prev, condicoesPagamento: condicoes })); };
-    const handleSave = () => { const dataToSave = { ...formData, cnpj: formData.cnpj.replace(/\D/g, ''), fone: formData.fone?.replace(/\D/g, ''), cep: formData.cep?.replace(/\D/g, ''), condicoesPagamento: formData.condicoesPagamento.map(c => ({...c, taxaJuros: parseFloat(c.taxaJuros.replace('.','').replace(',', '.'))})) }; onSave(sacado?.id, dataToSave); };
+    const addCondicao = () => {
+        const defaultTipoId = tiposOperacao && tiposOperacao.length > 0 ? tiposOperacao[0].id : '';
+        setFormData(prev => ({
+            ...prev,
+            condicoesPagamento: [...prev.condicoesPagamento, { tipoOperacaoId: defaultTipoId, taxaJuros: '', prazos: '' }]
+        }));
+    };
+
+    const removeCondicao = (index) => {
+        const condicoes = [...formData.condicoesPagamento];
+        condicoes.splice(index, 1);
+        setFormData(prev => ({ ...prev, condicoesPagamento: condicoes }));
+    };
+
+    const handleSave = () => { 
+        const dataToSave = { 
+            ...formData, 
+            cnpj: formData.cnpj.replace(/\D/g, ''), 
+            fone: formData.fone?.replace(/\D/g, ''), 
+            cep: formData.cep?.replace(/\D/g, ''),
+            condicoesPagamento: formData.condicoesPagamento.map(c => ({
+                ...c,
+                taxaJuros: parseTaxa(c.taxaJuros)
+            }))
+        }; 
+        onSave(sacado?.id, dataToSave); 
+    };
+    
     const isEditMode = !!sacado?.id;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl">
                 <h2 className="text-xl font-bold mb-4">{isEditMode ? 'Editar Sacado' : 'Adicionar Novo Sacado'}</h2>
+                
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -96,6 +152,7 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                             <input type="text" name="nome" value={formData.nome || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md p-1.5 text-sm"/>
                         </div>
                     </div>
+
                     {dataFetched && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,34 +171,23 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                                     <h3 className="text-md font-semibold text-gray-800">Condições de Pagamento</h3>
                                     <button type="button" onClick={addCondicao} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">+ Adicionar</button>
                                 </div>
-                                <div className="space-y-2 max-h-28 overflow-y-auto pr-2">
-                                    {/* CABEÇALHOS ADICIONADOS */}
+                                <div className="space-y-2 max-h-28 overflow-y-auto pr-2 border rounded-md p-2">
                                     {formData.condicoesPagamento?.length > 0 && (
-                                        <div className="grid grid-cols-4 gap-2 pr-2 text-center">
+                                        <div className="grid grid-cols-4 gap-2 pr-2 text-center mb-1">
                                             <label className="block text-xs font-bold text-gray-500">Tipo de Operação</label>
                                             <label className="block text-xs font-bold text-gray-500">Taxa (%)</label>
                                             <label className="block text-xs font-bold text-gray-500">Prazos</label>
-                                            <label></label>
                                         </div>
                                     )}
                                     {formData.condicoesPagamento?.length > 0 ? formData.condicoesPagamento.map((cond, index) => (
                                         <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                                            <select name="tipoOperacao" value={cond.tipoOperacao} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm">
-                                                <option value="IJJ">IJJ</option>
-                                                <option value="IJJ_TRANSREC">IJJ TRANSREC</option>
-                                                <option value="A_VISTA">A VISTA</option>
+                                            <select name="tipoOperacaoId" value={cond.tipoOperacaoId} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm">
+                                                <option value="">Selecione...</option>
+                                                {tiposOperacao.map(op => (
+                                                    <option key={op.id} value={op.id}>{op.nome}</option>
+                                                ))}
                                             </select>
-                                            <input
-    type="text"
-    name="taxaJuros"
-    placeholder="Taxa (%)"
-    value={cond.taxaJuros}
-    onChange={(e) => {
-        const raw = e.target.value.replace(/[^\d]/g, '');
-        const valor = (parseInt(raw || '0', 10) / 100).toFixed(2).replace('.', ',');
-        handleCondicaoChange(index, { target: { name: 'taxaJuros', value: valor } });
-    }}
-    className="border border-gray-300 rounded p-1 text-sm" />
+                                            <input type="text" name="taxaJuros" placeholder="0,00" value={cond.taxaJuros || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm text-right" />
                                             <input type="text" name="prazos" placeholder="ex: 15/30" value={cond.prazos || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm" />
                                             <button type="button" onClick={() => removeCondicao(index)} className="bg-red-100 text-red-700 text-xs font-semibold py-1.5 px-2 rounded-md hover:bg-red-200">Remover</button>
                                         </div>

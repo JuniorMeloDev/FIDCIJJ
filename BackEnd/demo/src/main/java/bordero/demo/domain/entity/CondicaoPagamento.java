@@ -14,9 +14,12 @@ public class CondicaoPagamento {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Em vez de @Enumerated, usamos uma relação @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tipo_operacao_id", nullable = false)
     private TipoOperacao tipoOperacao;
+    // --- FIM DA CORREÇÃO ---
 
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal taxaJuros; // Ex: 2.00 para 2%

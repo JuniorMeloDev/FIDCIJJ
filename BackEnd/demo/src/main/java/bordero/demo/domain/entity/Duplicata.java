@@ -20,9 +20,6 @@ public class Duplicata {
     @Column(name = "nf_cte", nullable = false)
     private String nfCte;
 
-    @Column(name = "empresa_cedente", nullable = false)
-    private String empresaCedente;
-
     @Column(name = "valor_bruto", nullable = false, precision = 19, scale = 2)
     private BigDecimal valorBruto;
 
@@ -34,10 +31,6 @@ public class Duplicata {
 
     @Column(name = "data_vencimento", nullable = false)
     private LocalDate dataVencimento;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_operacao", nullable = false)
-    private TipoOperacao tipoOperacao;
 
     @Column(name = "status_recebimento", nullable = false)
     private String statusRecebimento = "Pendente";
