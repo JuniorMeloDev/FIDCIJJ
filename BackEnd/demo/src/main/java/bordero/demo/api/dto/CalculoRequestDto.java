@@ -1,6 +1,5 @@
 package bordero.demo.api.dto;
 
-import bordero.demo.domain.entity.TipoOperacao;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
@@ -17,10 +16,12 @@ public class CalculoRequestDto {
     @Positive
     private BigDecimal valorNf;
     @NotNull
-    private TipoOperacao tipoOperacao;
+    private Long tipoOperacaoId; 
+    @NotNull
+    private String clienteSacado; 
     @NotNull
     private Integer parcelas;
     @NotNull
     private String prazos;
-    private BigDecimal peso;
+    private BigDecimal peso; 
 }

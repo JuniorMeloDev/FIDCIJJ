@@ -14,17 +14,25 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
 
     useEffect(() => {
         if (isOpen) {
-            if (cliente) {
-                setFormData({ 
+            if (cliente) { // Se o modal abre para editar ou com dados de XML
+                const formattedCnpj = cliente.cnpj ? formatCnpjCpf(cliente.cnpj) : '';
+                const initialData = {
                     ...initialState,
                     ...cliente,
-                    cnpj: cliente.cnpj ? formatCnpjCpf(cliente.cnpj) : '',
+                    cnpj: formattedCnpj,
                     fone: cliente.fone ? formatTelefone(cliente.fone) : '',
                     cep: cliente.cep ? formatCep(cliente.cep) : '',
                     contasBancarias: cliente.contasBancarias ? [...cliente.contasBancarias] : []
-                });
-                setDataFetched(true);
-            } else {
+                };
+                setFormData(initialData);
+
+                // Se o CNPJ estiver completo e não for modo de edição (ou seja, vem do XML)
+                if (!cliente.id && formattedCnpj.replace(/\D/g, '').length === 14) {
+                    handleCnpjSearch(formattedCnpj);
+                } else {
+                    setDataFetched(true); // Se for edição, mostra os dados logo
+                }
+            } else { // Se o modal abre para criar manualmente
                 setFormData(initialState);
                 setDataFetched(false);
             }

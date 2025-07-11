@@ -110,10 +110,32 @@ public class OperacaoService {
         return operacaoSalva.getId();
     }
     
+    @Transactional(readOnly = true)
+    public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
+        Sacado sacado = sacadoRepository.findByNomeIgnoreCase(request.getClienteSacado())
+                .orElseThrow(() -> new RuntimeException("Sacado '" + request.getClienteSacado() + "' não encontrado."));
+
+        TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(request.getTipoOperacaoId())
+                .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + request.getTipoOperacaoId() + " não encontrado."));
+
+        CondicaoPagamento condicao = sacado.getCondicoesPagamento().stream()
+                .filter(cp -> cp.getTipoOperacao().getId().equals(tipoOperacao.getId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Nenhuma condição de pagamento encontrada para o Sacado '" + sacado.getNome() + "' com o tipo de operação '" + tipoOperacao.getNome() + "'."));
+
+        NotaFiscalDto nfDto = new NotaFiscalDto();
+        nfDto.setValorNf(request.getValorNf());
+        nfDto.setParcelas(request.getParcelas());
+        nfDto.setDataNf(request.getDataNf());
+        nfDto.setPrazos(request.getPrazos());
+
+        return calcularJurosComCondicao(request.getDataOperacao(), nfDto, condicao);
+    }
+    
     private CalculoResponseDto calcularJurosComCondicao(LocalDate dataOperacao, NotaFiscalDto nf, CondicaoPagamento condicao) {
         BigDecimal valorTotal = nf.getValorNf();
         int numParcelas = nf.getParcelas();
-        String[] prazosStr = condicao.getPrazos().split("/");
+        String[] prazosStr = nf.getPrazos().split("/");
         
         BigDecimal totalJuros = BigDecimal.ZERO;
         List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
@@ -163,8 +185,18 @@ public class OperacaoService {
         movimentacao.setDataMovimento(operacao.getDataOperacao());
         movimentacao.setCategoria("Pagamento de Borderô");
         movimentacao.setValor(operacao.getValorLiquido().negate());
-        movimentacao.setDescricao("Borderô Operação ID " + operacao.getId());
-        movimentacao.setContaBancaria("Itaú"); // Esta lógica pode ser aprimorada no futuro
+        
+        String tipoDocumento = "NF";
+        if (operacao.getCliente() != null && "Transportes".equalsIgnoreCase(operacao.getCliente().getRamoDeAtividade())) {
+            tipoDocumento = "Cte";
+        }
+        String numeros = operacao.getDuplicatas().stream()
+                              .map(duplicata -> duplicata.getNfCte().split("\\.")[0])
+                              .distinct()
+                              .collect(Collectors.joining(", "));
+        movimentacao.setDescricao("Borderô " + tipoDocumento + " " + numeros);
+
+        movimentacao.setContaBancaria("Itaú"); // Esta lógica pode ser aprimorada
         movimentacao.setEmpresaAssociada(operacao.getCliente().getNome());
         movimentacao.setOperacao(operacao);
         
@@ -202,7 +234,7 @@ public class OperacaoService {
                 }
             }
             movimentacao.setDescricao("Recebimento " + tipoDocumento + " " + duplicata.getNfCte());
-            movimentacao.setContaBancaria("Itaú");
+            movimentacao.setContaBancaria("Itaú"); 
             movimentacao.setEmpresaAssociada(duplicata.getOperacao().getCliente().getNome());
 
             MovimentacaoCaixa movimentacaoSalva = movimentacaoCaixaRepository.save(movimentacao);

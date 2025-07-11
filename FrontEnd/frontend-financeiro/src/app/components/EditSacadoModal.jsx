@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
 
-// Função para formatar o campo de taxa
+// Esta função de formatação pode ser mantida ou ajustada conforme a sua necessidade
 const formatTaxaInput = (value) => {
     if (!value) return '';
     const cleanValue = String(value).replace(/[^\d,]/g, '');
@@ -29,7 +29,9 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
             if (sacado) {
                 const formattedCondicoes = sacado.condicoesPagamento ? sacado.condicoesPagamento.map(c => ({
                     ...c,
-                    taxaJuros: c.taxaJuros ? String(c.taxaJuros).replace('.', ',') : ''
+                    taxaJuros: c.taxaJuros ? String(c.taxaJuros).replace('.', ',') : '',
+                    // Garante que estamos a usar o ID para o valor do select
+                    tipoOperacaoId: c.tipoOperacao?.id || c.tipoOperacaoId
                 })) : [];
 
                 setFormData({ 
@@ -96,21 +98,35 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
     const handleCondicaoChange = (index, e) => {
         const { name, value } = e.target;
         const condicoes = [...formData.condicoesPagamento];
+
         if (condicoes[index]) {
             let finalValue = value;
             if (name === 'taxaJuros') {
                 finalValue = formatTaxaInput(value);
             }
             condicoes[index][name] = finalValue;
+
+            if (name === 'tipoOperacaoId') {
+                const tipoSelecionado = tiposOperacao.find(op => op.id === parseInt(value));
+                if (tipoSelecionado && tipoSelecionado.taxaJuros) {
+                    condicoes[index]['taxaJuros'] = String(tipoSelecionado.taxaJuros).replace('.', ',');
+                } else {
+                    condicoes[index]['taxaJuros'] = '';
+                }
+            }
+
             setFormData(prev => ({ ...prev, condicoesPagamento: condicoes }));
         }
     };
 
     const addCondicao = () => {
         const defaultTipoId = tiposOperacao && tiposOperacao.length > 0 ? tiposOperacao[0].id : '';
+        const tipoSelecionado = tiposOperacao.find(op => op.id === defaultTipoId);
+        const taxaPadrao = tipoSelecionado && tipoSelecionado.taxaJuros ? String(tipoSelecionado.taxaJuros).replace('.', ',') : '';
+        
         setFormData(prev => ({
             ...prev,
-            condicoesPagamento: [...prev.condicoesPagamento, { tipoOperacaoId: defaultTipoId, taxaJuros: '', prazos: '' }]
+            condicoesPagamento: [...prev.condicoesPagamento, { tipoOperacaoId: defaultTipoId, taxaJuros: taxaPadrao, prazos: '' }]
         }));
     };
 
@@ -173,7 +189,7 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                                 </div>
                                 <div className="space-y-2 max-h-28 overflow-y-auto pr-2 border rounded-md p-2">
                                     {formData.condicoesPagamento?.length > 0 && (
-                                        <div className="grid grid-cols-4 gap-2 pr-2 text-center mb-1">
+                                        <div className="grid grid-cols-4 gap-2 pr-12 text-center mb-1">
                                             <label className="block text-xs font-bold text-gray-500">Tipo de Operação</label>
                                             <label className="block text-xs font-bold text-gray-500">Taxa (%)</label>
                                             <label className="block text-xs font-bold text-gray-500">Prazos</label>
@@ -181,7 +197,7 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                                     )}
                                     {formData.condicoesPagamento?.length > 0 ? formData.condicoesPagamento.map((cond, index) => (
                                         <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                                            <select name="tipoOperacaoId" value={cond.tipoOperacaoId} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm">
+                                            <select name="tipoOperacaoId" value={cond.tipoOperacaoId || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm">
                                                 <option value="">Selecione...</option>
                                                 {tiposOperacao.map(op => (
                                                     <option key={op.id} value={op.id}>{op.nome}</option>

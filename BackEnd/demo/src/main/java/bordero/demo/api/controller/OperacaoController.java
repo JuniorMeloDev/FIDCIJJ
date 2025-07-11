@@ -1,5 +1,7 @@
 package bordero.demo.api.controller;
 
+import bordero.demo.api.dto.CalculoRequestDto;
+import bordero.demo.api.dto.CalculoResponseDto;
 import bordero.demo.api.dto.EmailRequestDto;
 import bordero.demo.api.dto.OperacaoRequestDto;
 import bordero.demo.domain.entity.Cliente;
@@ -27,21 +29,13 @@ public class OperacaoController {
     private final OperacaoService operacaoService;
     private final PdfGenerationService pdfService;
     private final EmailService emailService;
-    private final ClienteRepository clienteRepository; // Repositório injetado
-
-    /**
-     * Endpoint para salvar uma nova operação de borderô.
-     * A lógica de cálculo de juros agora é tratada internamente pelo OperacaoService.
-     */
+    private final ClienteRepository clienteRepository; // 
     @PostMapping("/salvar")
     public ResponseEntity<Long> salvarOperacao(@Valid @RequestBody OperacaoRequestDto operacaoRequestDto) {
         Long operacaoId = operacaoService.salvarOperacao(operacaoRequestDto);
         return new ResponseEntity<>(operacaoId, HttpStatus.CREATED);
     }
 
-    /**
-     * Endpoint para gerar o PDF de um borderô, com a nomeação baseada no ramo de atividade do cliente.
-     */
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> gerarPdfBordero(@PathVariable Long id) {
         Operacao operacao = operacaoService.buscarOperacaoPorId(id);
@@ -66,7 +60,6 @@ public class OperacaoController {
                               .collect(Collectors.joining(", "));
     
         String filename = (prefixo + numeros).trim() + ".pdf";
-        // --- FIM DA LÓGICA ATUALIZADA ---
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
@@ -76,9 +69,6 @@ public class OperacaoController {
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
     
-    /**
-     * Endpoint para enviar o PDF do borderô por e-mail.
-     */
     @PostMapping("/{id}/enviar-email")
     public ResponseEntity<Void> enviarEmailBordero(@PathVariable Long id, @RequestBody EmailRequestDto payload) {
         if (payload.getDestinatarios() == null || payload.getDestinatarios().isEmpty()) {
@@ -89,5 +79,11 @@ public class OperacaoController {
         emailService.sendBorderoEmail(payload.getDestinatarios(), operacao);
         
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/calcular-juros")
+    public ResponseEntity<CalculoResponseDto> calcular(@Valid @RequestBody CalculoRequestDto request) {
+        CalculoResponseDto response = operacaoService.calcularJuros(request);
+        return ResponseEntity.ok(response);
     }
 }

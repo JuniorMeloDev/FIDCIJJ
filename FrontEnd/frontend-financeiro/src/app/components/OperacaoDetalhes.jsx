@@ -5,7 +5,7 @@ import { formatBRLNumber } from '@/app/utils/formatters';
 export default function OperacaoDetalhes({ notasFiscais, descontos, totais, handleSalvarOperacao, handleLimparTudo, isSaving, onAddDescontoClick, onRemoveDesconto }) {
 
     return (
-        <section className="bg-white p-6 rounded-lg shadow-md">
+        <section className="bg-white p-6 rounded-lg shadow-md mt-8">
            <h2 className="text-2xl font-semibold mb-4">Duplicatas da Operação</h2>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -24,13 +24,14 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{nf.nfCte}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{nf.clienteSacado}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatBRLNumber(nf.valorNf)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 text-right">-{formatBRLNumber(nf.jurosCalculado)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatBRLNumber(nf.valorLiquidoCalculado)}</td>
+                                {/* Linha corrigida para exibir o juro de cada nota */}
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 text-right">-{formatBRLNumber(nf.jurosCalculado || 0)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{formatBRLNumber(nf.valorLiquidoCalculado || nf.valorNf)}</td>
                             </tr>
                         ))}
                          {notasFiscais.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="text-center py-10 text-gray-500">Nenhuma duplicata adicionada a esta operação.</td>
+                                <td colSpan="5" className="text-center py-10 text-gray-500">Nenhuma duplicata adicionada a esta operação.</td>
                             </tr>
                         )}
                     </tbody>
@@ -39,7 +40,7 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
             
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
               <div className="md:col-span-2 space-y-3">
-                <label className="block text-sm font-medium text-gray-700">Outros Descontos / Taxas</label>
+                <h3 className="text-lg font-semibold text-gray-700">Outros Descontos / Taxas</h3>
                 {descontos.length > 0 ? (
                     <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
                         {descontos.map(d => (
@@ -67,7 +68,7 @@ export default function OperacaoDetalhes({ notasFiscais, descontos, totais, hand
                   </div>
                   <div className="flex justify-between text-sm font-medium text-red-600">
                       <span>(-) Deságio Total:</span>
-                      <span>-{formatBRLNumber(totais.desagioTotal)}</span>
+                      <span>{formatBRLNumber(totais.desagioTotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-medium text-red-600">
                       <span>(-) Outros Descontos:</span>

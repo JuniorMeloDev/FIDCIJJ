@@ -49,6 +49,7 @@ public class CadastroService {
     private void updateClienteFromDto(Cliente cliente, ClienteDto dto) {
         cliente.setNome(dto.getNome());
         cliente.setCnpj(dto.getCnpj());
+        cliente.setRamoDeAtividade(dto.getRamoDeAtividade());
         cliente.setEndereco(dto.getEndereco());
         cliente.setBairro(dto.getBairro());
         cliente.setMunicipio(dto.getMunicipio());
@@ -56,7 +57,6 @@ public class CadastroService {
         cliente.setFone(dto.getFone());
         cliente.setIe(dto.getIe());
         cliente.setCep(dto.getCep());
-        cliente.setRamoDeAtividade(dto.getRamoDeAtividade());
 
         if (cliente.getContasBancarias() == null) {
             cliente.setContasBancarias(new ArrayList<>());
@@ -116,19 +116,23 @@ public class CadastroService {
         sacado.setIe(dto.getIe());
         sacado.setCep(dto.getCep());
 
-        if (dto.getCondicoesPagamento() != null) {
-        dto.getCondicoesPagamento().forEach(condicaoDto -> {
-            // Busca a entidade TipoOperacao pelo ID
-            TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(condicaoDto.getTipoOperacaoId())
-                .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + condicaoDto.getTipoOperacaoId() + " não encontrado."));
+        if (sacado.getCondicoesPagamento() == null) {
+            sacado.setCondicoesPagamento(new ArrayList<>());
+        }
+        sacado.getCondicoesPagamento().clear();
 
-            CondicaoPagamento condicao = new CondicaoPagamento();
-            condicao.setTipoOperacao(tipoOperacao); // Associa a entidade encontrada
-            condicao.setTaxaJuros(condicaoDto.getTaxaJuros());
-            condicao.setPrazos(condicaoDto.getPrazos());
-            condicao.setSacado(sacado);
-            sacado.getCondicoesPagamento().add(condicao);
-        });
+        if (dto.getCondicoesPagamento() != null) {
+            dto.getCondicoesPagamento().forEach(condicaoDto -> {
+                TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(condicaoDto.getTipoOperacaoId())
+                    .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + condicaoDto.getTipoOperacaoId() + " não encontrado."));
+
+                CondicaoPagamento condicao = new CondicaoPagamento();
+                condicao.setTipoOperacao(tipoOperacao);
+                condicao.setTaxaJuros(condicaoDto.getTaxaJuros());
+                condicao.setPrazos(condicaoDto.getPrazos());
+                condicao.setSacado(sacado);
+                sacado.getCondicoesPagamento().add(condicao);
+            });
         }
     }
 
@@ -182,8 +186,8 @@ public class CadastroService {
         tipoOperacao.setNome(dto.getNome());
         tipoOperacao.setTaxaJuros(dto.getTaxaJuros());
         tipoOperacao.setValorFixo(dto.getValorFixo());
-        tipoOperacao.setDescricao(dto.getDescricao());
         tipoOperacao.setDespesasBancarias(dto.getDespesasBancarias());
+        tipoOperacao.setDescricao(dto.getDescricao());
     }
 
     // --- MÉTODOS PARA O PROCESSAMENTO DE XML ---
@@ -240,8 +244,8 @@ public class CadastroService {
                 .id(cliente.getId())
                 .nome(cliente.getNome())
                 .cnpj(cliente.getCnpj())
-                .endereco(cliente.getEndereco())
                 .ramoDeAtividade(cliente.getRamoDeAtividade())
+                .endereco(cliente.getEndereco())
                 .bairro(cliente.getBairro())
                 .municipio(cliente.getMunicipio())
                 .uf(cliente.getUf())
@@ -288,7 +292,7 @@ public class CadastroService {
         return CondicaoPagamentoDto.builder()
                 .id(condicao.getId())
                 .tipoOperacaoId(condicao.getTipoOperacao().getId())
-            .tipoOperacaoNome(condicao.getTipoOperacao().getNome())
+                .tipoOperacaoNome(condicao.getTipoOperacao().getNome())
                 .taxaJuros(condicao.getTaxaJuros())
                 .prazos(condicao.getPrazos())
                 .build();
