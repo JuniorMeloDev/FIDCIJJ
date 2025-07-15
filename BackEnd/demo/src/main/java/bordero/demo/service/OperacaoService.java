@@ -1,8 +1,8 @@
 package bordero.demo.service;
 
 import bordero.demo.api.dto.*;
+// Necessário para a consulta com Specification
 import bordero.demo.domain.entity.*;
-import bordero.demo.domain.entity.Duplicata_; // Necessário para a consulta com Specification
 import bordero.demo.domain.repository.*;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -93,6 +93,8 @@ public class OperacaoService {
 
         duplicatasParaSalvar.forEach(dup -> dup.setOperacao(operacaoSalva));
         duplicataRepository.saveAll(duplicatasParaSalvar);
+
+        operacaoSalva.setDuplicatas(duplicatasParaSalvar);
 
         if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
             List<Desconto> descontosList = operacaoDto.getDescontos().stream().map(dto -> {

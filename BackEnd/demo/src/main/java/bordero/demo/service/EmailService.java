@@ -22,24 +22,47 @@ public class EmailService {
     public void sendBorderoEmail(List<String> to, Operacao operacao) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
+            // O segundo argumento 'true' ativa o modo multipart, necessário para HTML e anexos
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            // --- Lógica do Nome do Ficheiro ---
+            // --- LÓGICA DO NOME DO FICHEIRO E DO ASSUNTO DO E-MAIL ---
             String tipoDocumento = "NF";
             if (operacao.getCliente() != null && "Transportes".equalsIgnoreCase(operacao.getCliente().getRamoDeAtividade())) {
                 tipoDocumento = "Cte";
             }
-            String prefixo = "Bordero " + tipoDocumento + " ";
+            
             String numeros = operacao.getDuplicatas().stream()
                                   .map(duplicata -> duplicata.getNfCte().split("\\.")[0])
                                   .distinct()
                                   .collect(Collectors.joining(", "));
-            String filename = (prefixo + numeros).trim() + ".pdf";
-            // --- Fim da Lógica ---
+            
+            String subject = "Borderô " + tipoDocumento + " " + numeros;
+            String filename = subject + ".pdf";
+            // --- FIM DA LÓGICA ---
 
             helper.setTo(to.toArray(new String[0]));
-            helper.setSubject("Borderô de Operação - FIDC IJJ");
-            helper.setText("Prezados,\n\nSegue em anexo o borderô referente à operação.\n\nAtenciosamente,\nFIDC IJJ");
+            helper.setSubject(subject); // Define o assunto do e-mail
+
+            // --- CORPO DO E-MAIL EM HTML COM ASSINATURA ---
+            String emailBody = "<html>"
+                + "<body>"
+                + "<p>Prezados,</p>"
+                + "<p>Segue em anexo o borderô referente à operação " + tipoDocumento + " " + numeros + ".</p>"
+                + "<br/>"
+                + "<p>Atenciosamente,</p>"
+                + "<p>"
+                + "<strong>Junior Melo</strong><br/>"
+                + "Analista Financeiro<br/>"
+                + "<strong>FIDC IJJ</strong><br/>"
+                + "(81) 9 7339-0292"
+                + "</p>"
+                + "<img src= 'https://1drv.ms/i/s!AkqLGeak4n5juuV0IwV4TtaEXOWGOQ?embed=1' width='140'>"
+                + "</body>"
+                + "</html>";
+            
+            // O segundo argumento 'true' para setText indica que o conteúdo é HTML
+            helper.setText(emailBody, true);
+            // --- FIM DO CORPO DO E-MAIL ---
 
             byte[] pdfBytes = pdfService.generateBorderoPdf(operacao);
             helper.addAttachment(filename, new ByteArrayResource(pdfBytes));
@@ -47,8 +70,6 @@ public class EmailService {
             mailSender.send(message);
 
         } catch (MessagingException e) {
-            // Lidar com a exceção de forma mais robusta em um ambiente de produção
-            // (ex: logar o erro, tentar novamente, notificar um administrador)
             throw new RuntimeException("Falha ao enviar o e-mail com o borderô.", e);
         }
     }

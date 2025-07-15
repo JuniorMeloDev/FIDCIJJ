@@ -91,10 +91,24 @@ export default function OperacaoBorderoPage() {
             if (!response.ok) throw new Error(await response.text() || 'Falha ao ler o ficheiro XML.');
             const data = await response.json();
             setXmlDataPendente(data);
-            if (!data.emitenteExiste) setClienteParaCriar(data.emitente);
-            else {
+            if (!data.emitenteExiste) {
+                setClienteParaCriar(data.emitente);
+            } else if (!data.sacadoExiste) {
+                setSacadoParaCriar(data.sacado);
+            } else {
+                // Busca tipo de operação pelo CNPJ do emitente e do sacado
+                const tipoExistente = tiposOperacao.find(t =>
+                    (t.cliente?.cnpj && t.cliente.cnpj.replace(/\D/g, '') === data.emitente.cnpj.replace(/\D/g, '')) &&
+                    (t.sacado?.cnpj && t.sacado.cnpj.replace(/\D/g, '') === data.sacado.cnpj.replace(/\D/g, ''))
+                );
                 setEmpresaCedente(data.emitente.nome);
-                setTipoOperacaoParaCriar({ nome: 'Nova Operação (do XML)' });
+                if (tipoExistente) {
+                    setTipoOperacaoId(tipoExistente.id);
+                } else {
+                    showNotification('Tipo de operação não encontrado. Se necessário, cadastre manualmente.', 'warning');
+                }
+                preencherFormularioComXml(data);
+                setXmlDataPendente(null);
             }
         } catch (error) {
             showNotification(error.message, 'error');
@@ -110,7 +124,13 @@ export default function OperacaoBorderoPage() {
             showNotification('Cliente criado com sucesso!', 'success');
             setEmpresaCedente(data.nome);
             setClienteParaCriar(null);
-            setTipoOperacaoParaCriar({ nome: 'Nova Operação (do XML)' });
+            // Após criar cliente, verifica se precisa criar sacado
+            if (xmlDataPendente && !xmlDataPendente.sacadoExiste) {
+                setSacadoParaCriar(xmlDataPendente.sacado);
+            } else if (xmlDataPendente) {
+                preencherFormularioComXml(xmlDataPendente);
+                setXmlDataPendente(null);
+            }
         } catch (err) {
             showNotification(err.message, 'error');
         }
@@ -139,7 +159,10 @@ export default function OperacaoBorderoPage() {
             if (!response.ok) throw new Error('Falha ao criar novo sacado.');
             showNotification('Sacado criado com sucesso!', 'success');
             setSacadoParaCriar(null);
-            if (xmlDataPendente) preencherFormularioComXml(xmlDataPendente);
+            if (xmlDataPendente) {
+                preencherFormularioComXml(xmlDataPendente);
+                setXmlDataPendente(null);
+            }
         } catch (err) {
             showNotification(err.message, 'error');
         }
