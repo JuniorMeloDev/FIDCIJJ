@@ -1,7 +1,6 @@
 package bordero.demo.service;
 
 import bordero.demo.api.dto.*;
-// Necessário para a consulta com Specification
 import bordero.demo.domain.entity.*;
 import bordero.demo.domain.repository.*;
 import jakarta.persistence.criteria.Predicate;
@@ -19,6 +18,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,8 +33,10 @@ public class OperacaoService {
     private final SacadoRepository sacadoRepository;
     private final TipoOperacaoRepository tipoOperacaoRepository;
     private final ClienteRepository clienteRepository;
+    private final ContaBancariaRepository contaBancariaRepository;
 
     @Transactional
+
     public Long salvarOperacao(OperacaoRequestDto operacaoDto) {
         log.info("Iniciando salvamento da operação para a empresa: {}", operacaoDto.getEmpresaCedente());
 
@@ -53,7 +55,7 @@ public class OperacaoService {
 
             Sacado sacado = sacadoRepository.findByNomeIgnoreCase(nfDto.getClienteSacado())
                     .orElseThrow(() -> new RuntimeException("Sacado '" + nfDto.getClienteSacado() + "' não encontrado."));
-            
+
             CondicaoPagamento condicao = sacado.getCondicoesPagamento().stream()
                     .filter(cp -> cp.getTipoOperacao().getId().equals(tipoOperacao.getId()))
                     .findFirst()
@@ -74,10 +76,10 @@ public class OperacaoService {
                 duplicatasParaSalvar.add(duplicata);
             }
         }
-        
+
         BigDecimal totalDescontosAdicionais = operacaoDto.getDescontos() != null ? operacaoDto.getDescontos().stream()
                 .map(DescontoDto::getValor).reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
-        
+
         BigDecimal valorLiquidoFinal = valorTotalOperacao.subtract(jurosTotalOperacao).subtract(totalDescontosAdicionais);
 
         Operacao operacao = new Operacao();
@@ -88,7 +90,7 @@ public class OperacaoService {
         operacao.setValorTotalJuros(jurosTotalOperacao);
         operacao.setValorTotalDescontos(totalDescontosAdicionais);
         operacao.setValorLiquido(valorLiquidoFinal);
-        
+
         Operacao operacaoSalva = operacaoRepository.save(operacao);
 
         duplicatasParaSalvar.forEach(dup -> dup.setOperacao(operacaoSalva));
@@ -107,12 +109,12 @@ public class OperacaoService {
             descontoRepository.saveAll(descontosList);
         }
 
-        criarMovimentacaoDeSaida(operacaoSalva);
+        criarMovimentacaoDeSaida(operacaoSalva, operacaoDto.getContaBancariaId());
 
         return operacaoSalva.getId();
     }
-    
-    @Transactional(readOnly = true)
+
+     @Transactional(readOnly = true)
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         Sacado sacado = sacadoRepository.findByNomeIgnoreCase(request.getClienteSacado())
                 .orElseThrow(() -> new RuntimeException("Sacado '" + request.getClienteSacado() + "' não encontrado."));
@@ -135,73 +137,80 @@ public class OperacaoService {
     }
     
     private CalculoResponseDto calcularJurosComCondicao(LocalDate dataOperacao, NotaFiscalDto nf, CondicaoPagamento condicao) {
-        BigDecimal valorTotal = nf.getValorNf();
-        int numParcelas = nf.getParcelas();
-        String[] prazosStr = nf.getPrazos().split("/");
-        
-        BigDecimal totalJuros = BigDecimal.ZERO;
-        List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
-        BigDecimal valorTotalParcelas = BigDecimal.ZERO;
-        BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
+    BigDecimal valorTotal = nf.getValorNf();
+    int numParcelas = nf.getParcelas();
+    String[] prazosStr = nf.getPrazos().split("/");
 
-        for (int i = 0; i < prazosStr.length; i++) {
-            int prazoDias = Integer.parseInt(prazosStr[i].trim());
-            LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
-            LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
-            long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
-            
-            BigDecimal jurosParcela = valorParcelaBase
-                .multiply(condicao.getTaxaJuros().divide(new BigDecimal(100)))
-                .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal(diasCorridos));
+    BigDecimal totalJuros = BigDecimal.ZERO;
+    List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
+    BigDecimal valorTotalParcelas = BigDecimal.ZERO;
+    BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
 
-            jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
-            totalJuros = totalJuros.add(jurosParcela);
-            valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
+    for (int i = 0; i < prazosStr.length; i++) {
+        int prazoDias = Integer.parseInt(prazosStr[i].trim());
+        LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
+        LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
+        long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
 
-            parcelasCalculadas.add(ParcelaDto.builder()
-                .numeroParcela(i + 1)
-                .dataVencimento(dataVencimento)
-                .valorParcela(valorParcelaBase)
-                .jurosParcela(jurosParcela)
-                .build());
-        }
+        BigDecimal jurosParcela = valorParcelaBase
+            .multiply(condicao.getTaxaJuros().divide(new BigDecimal(100)))
+            .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
+            .multiply(new BigDecimal(diasCorridos));
 
-        BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
-        if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
-            ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
-            ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
-        }
+        jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
+        totalJuros = totalJuros.add(jurosParcela);
+        valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
 
-        BigDecimal valorLiquido = valorTotal.subtract(totalJuros);
-
-        return CalculoResponseDto.builder()
-            .totalJuros(totalJuros)
-            .valorLiquido(valorLiquido)
-            .parcelasCalculadas(parcelasCalculadas)
-            .build();
+        parcelasCalculadas.add(ParcelaDto.builder()
+            .numeroParcela(i + 1)
+            .dataVencimento(dataVencimento)
+            .valorParcela(valorParcelaBase)
+            .jurosParcela(jurosParcela)
+            .build());
     }
-    
-    private void criarMovimentacaoDeSaida(Operacao operacao) {
+
+    BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
+    if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
+        ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
+        ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
+    }
+
+    BigDecimal valorLiquido = valorTotal.subtract(totalJuros);
+
+    return CalculoResponseDto.builder()
+        .totalJuros(totalJuros)
+        .valorLiquido(valorLiquido)
+        .parcelasCalculadas(parcelasCalculadas)
+        .build();
+}
+
+    private void criarMovimentacaoDeSaida(Operacao operacao, Long contaBancariaId) {
         MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();
         movimentacao.setDataMovimento(operacao.getDataOperacao());
         movimentacao.setCategoria("Pagamento de Borderô");
         movimentacao.setValor(operacao.getValorLiquido().negate());
-        
+
         String tipoDocumento = "NF";
         if (operacao.getCliente() != null && "Transportes".equalsIgnoreCase(operacao.getCliente().getRamoDeAtividade())) {
             tipoDocumento = "Cte";
         }
+
         String numeros = operacao.getDuplicatas().stream()
-                              .map(duplicata -> duplicata.getNfCte().split("\\.")[0])
-                              .distinct()
-                              .collect(Collectors.joining(", "));
+                .map(Duplicata::getNfCte)
+                .filter(Objects::nonNull)
+                .map(nf -> nf.contains(".") ? nf.split("\\.")[0] : nf)
+                .distinct()
+                .collect(Collectors.joining(", "));
+
         movimentacao.setDescricao("Borderô " + tipoDocumento + " " + numeros);
 
-        movimentacao.setContaBancaria("Itaú"); // Esta lógica pode ser aprimorada
+        ContaBancaria conta = contaBancariaRepository.findById(contaBancariaId)
+                .orElseThrow(() -> new RuntimeException("Conta bancária não encontrada com ID: " + contaBancariaId));
+
+        movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
         movimentacao.setEmpresaAssociada(operacao.getCliente().getNome());
         movimentacao.setOperacao(operacao);
-        
+
         movimentacaoCaixaRepository.save(movimentacao);
     }
     

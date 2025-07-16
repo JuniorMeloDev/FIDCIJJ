@@ -21,6 +21,9 @@ export default function OperacaoBorderoPage() {
     const [novaNf, setNovaNf] = useState({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '' });
     const [notasFiscais, setNotasFiscais] = useState([]);
     const [descontos, setDescontos] = useState([]);
+    const [contasBancarias, setContasBancarias] = useState([]);
+    const [contaBancariaId, setContaBancariaId] = useState('');
+
     
     // States de controlo da UI
     const [isDescontoModalOpen, setIsDescontoModalOpen] = useState(false);
@@ -41,22 +44,31 @@ export default function OperacaoBorderoPage() {
         setTimeout(() => setNotification({ message: '', type: '' }), 5000);
     };
 
+    useEffect(() => {
+        fetchTiposOperacao();
+        fetchContasMaster();
+    }, []);
+
     const fetchTiposOperacao = async () => {
         try {
-            const response = await fetch(`${API_URL}/cadastros/tipos-operacao`);
-            if (!response.ok) throw new Error('Falha ao carregar tipos de operação.');
-            const data = await response.json();
+            const res = await fetch(`${API_URL}/cadastros/tipos-operacao`);
+            const data = await res.json();
             setTiposOperacao(data);
-            return data;
-        } catch (error) {
-            showNotification(error.message, 'error');
-            return [];
+        } catch (err) {
+            showNotification('Erro ao carregar tipos de operação.', 'error');
         }
     };
 
-    useEffect(() => {
-        fetchTiposOperacao();
-    }, []);
+    const fetchContasMaster = async () => {
+        try {
+            const res = await fetch(`${API_URL}/cadastros/contas/master`);
+            const data = await res.json();
+            setContasBancarias(data);
+            if (data.length === 1) setContaBancariaId(data[0].id);
+        } catch (err) {
+            showNotification('Erro ao carregar contas bancárias.', 'error');
+        }
+    };
 
     const preencherFormularioComXml = (data) => {
         const prazosArray = data.parcelas ? data.parcelas.map(p => {
@@ -228,27 +240,52 @@ export default function OperacaoBorderoPage() {
     };
 
     const handleSalvarOperacao = async () => {
-        if (notasFiscais.length === 0) {
-            showNotification('Adicione pelo menos uma nota fiscal para guardar a operação.', 'error');
-            return;
-        }
-        setIsSaving(true);
-        const payload = { dataOperacao, tipoOperacaoId: parseInt(tipoOperacaoId), empresaCedente, descontos, notasFiscais: notasFiscais.map(nf => ({ ...nf, jurosCalculado: undefined, valorLiquidoCalculado: undefined })) };
-        try {
-            const response = await fetch(`${API_URL}/operacoes/salvar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw new Error(errorText || 'Ocorreu um erro ao guardar a operação.');
-            }
-            const operacaoId = await response.json();
-            showNotification(`Operação ${operacaoId} guardada com sucesso!`, 'success');
-            handleLimparTudo();
-        } catch (error) {
-            showNotification(error.message, 'error');
-        } finally {
-            setIsSaving(false);
-        }
+    if (notasFiscais.length === 0) {
+        showNotification('Adicione pelo menos uma nota fiscal para guardar a operação.', 'error');
+        return;
+    }
+
+    if (!contaBancariaId) {
+        showNotification('Selecione uma conta bancária para realizar o débito.', 'error');
+        return;
+    }
+
+    setIsSaving(true);
+
+    const payload = {
+        dataOperacao,
+        tipoOperacaoId: parseInt(tipoOperacaoId),
+        empresaCedente,
+        contaBancariaId: parseInt(contaBancariaId), // ✅ Aqui está a inclusão
+        descontos,
+        notasFiscais: notasFiscais.map(nf => ({
+            ...nf,
+            jurosCalculado: undefined,
+            valorLiquidoCalculado: undefined
+        }))
     };
+
+    try {
+        const response = await fetch(`${API_URL}/operacoes/salvar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Ocorreu um erro ao guardar a operação.');
+        }
+
+        const operacaoId = await response.json();
+        showNotification(`Operação ${operacaoId} guardada com sucesso!`, 'success');
+        handleLimparTudo();
+    } catch (error) {
+        showNotification(error.message, 'error');
+    } finally {
+        setIsSaving(false);
+    }
+};
     
     const totais = useMemo(() => {
         const valorTotalBruto = notasFiscais.reduce((acc, nf) => acc + nf.valorNf, 0);
@@ -257,6 +294,7 @@ export default function OperacaoBorderoPage() {
         const liquidoOperacao = valorTotalBruto - desagioTotal - totalOutrosDescontos;
         return { valorTotalBruto, desagioTotal, totalOutrosDescontos, liquidoOperacao };
     }, [notasFiscais, descontos]);
+
 
     return (
         <>
@@ -298,15 +336,19 @@ export default function OperacaoBorderoPage() {
                 />
 
                 <OperacaoDetalhes 
-                    notasFiscais={notasFiscais}
-                    descontos={descontos}
-                    totais={totais}
-                    handleSalvarOperacao={handleSalvarOperacao}
-                    handleLimparTudo={handleLimparTudo}
-                    isSaving={isSaving}
-                    onAddDescontoClick={() => setIsDescontoModalOpen(true)}
-                    onRemoveDesconto={handleRemoveDesconto}
-                />
+    notasFiscais={notasFiscais}
+    descontos={descontos}
+    totais={totais}
+    handleSalvarOperacao={handleSalvarOperacao}
+    handleLimparTudo={handleLimparTudo}
+    isSaving={isSaving}
+    onAddDescontoClick={() => setIsDescontoModalOpen(true)}
+    onRemoveDesconto={handleRemoveDesconto}
+    contasBancarias={contasBancarias}
+    contaBancariaId={contaBancariaId}
+    setContaBancariaId={setContaBancariaId}
+/>
+
             </main>
         </>
     );

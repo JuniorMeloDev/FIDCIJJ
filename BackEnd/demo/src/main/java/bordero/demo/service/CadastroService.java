@@ -45,6 +45,14 @@ public class CadastroService {
         Cliente clienteAtualizado = clienteRepository.save(cliente);
         return toClienteDto(clienteAtualizado);
     }
+
+      public Cliente obterClienteMaster() {
+    return clienteRepository.findAll(org.springframework.data.domain.Sort.by("id").ascending())
+            .stream()
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Nenhum cliente cadastrado."));
+}
+
     
     private void updateClienteFromDto(Cliente cliente, ClienteDto dto) {
         cliente.setNome(dto.getNome());
@@ -261,7 +269,7 @@ public class CadastroService {
                 .build();
     }
 
-    private ContaBancariaDto toContaBancariaDto(ContaBancaria conta) {
+    public ContaBancariaDto toContaBancariaDto(ContaBancaria conta) {
         return ContaBancariaDto.builder()
                 .id(conta.getId())
                 .banco(conta.getBanco())

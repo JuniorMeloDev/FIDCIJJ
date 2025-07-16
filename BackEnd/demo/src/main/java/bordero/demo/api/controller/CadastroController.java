@@ -1,8 +1,10 @@
 package bordero.demo.api.controller;
 
 import bordero.demo.api.dto.ClienteDto;
+import bordero.demo.api.dto.ContaBancariaDto;
 import bordero.demo.api.dto.SacadoDto;
 import bordero.demo.api.dto.TipoOperacaoDto;
+import bordero.demo.domain.entity.Cliente;
 import bordero.demo.service.CadastroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -95,4 +97,15 @@ public class CadastroController {
         cadastroService.excluirTipoOperacao(id);
         return ResponseEntity.noContent().build();
     }
+
+     @GetMapping("/contas/master")
+public ResponseEntity<List<ContaBancariaDto>> listarContasDoClienteMaster() {
+    Cliente master = cadastroService.obterClienteMaster(); // agora usa o CadastroService
+    List<ContaBancariaDto> contas = master.getContasBancarias().stream()
+            .map(cadastroService::toContaBancariaDto)
+            .toList();
+    return ResponseEntity.ok(contas);
 }
+}
+
+

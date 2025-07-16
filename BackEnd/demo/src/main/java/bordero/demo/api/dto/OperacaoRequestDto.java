@@ -7,8 +7,9 @@ import java.util.List;
 @Data
 public class OperacaoRequestDto {
     private LocalDate dataOperacao;
-    private Long tipoOperacaoId; // Alterado de 'TipoOperacao' para 'Long'
+    private Long tipoOperacaoId;
     private String empresaCedente;
     private List<NotaFiscalDto> notasFiscais;
     private List<DescontoDto> descontos;
+    private Long contaBancariaId;
 }
