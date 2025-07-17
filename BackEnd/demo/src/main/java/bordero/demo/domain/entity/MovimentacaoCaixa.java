@@ -32,7 +32,7 @@ public class MovimentacaoCaixa {
     @Column(name = "empresa_associada")
     private String empresaAssociada;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.EAGER) 
     @JoinColumn(name = "operacao_id")
     private Operacao operacao;
 }

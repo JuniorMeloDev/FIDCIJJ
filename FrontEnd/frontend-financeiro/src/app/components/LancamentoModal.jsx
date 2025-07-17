@@ -1,21 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { formatBRLInput, parseBRL } from '@/app/utils/formatters'; // Importa os formatadores
+import { useState, useEffect } from 'react';
+import { formatBRLInput, parseBRL } from '@/app/utils/formatters';
 
-export default function LancamentoModal({ isOpen, onClose, onSave, contas, empresas }) {
-    const [tipo, setTipo] = useState('DEBITO'); // DEBITO, CREDITO, TRANSFERENCIA
+// O Modal agora está a receber 'contasMaster' e 'clienteMasterNome'
+export default function LancamentoModal({ isOpen, onClose, onSave, contasMaster, clienteMasterNome }) {
+    const [tipo, setTipo] = useState('DEBITO');
     const [data, setData] = useState(new Date().toISOString().split('T')[0]);
     const [descricao, setDescricao] = useState('');
     const [valor, setValor] = useState('');
     const [contaOrigem, setContaOrigem] = useState('');
-    const [empresaAssociada, setEmpresaAssociada] = useState('');
     const [contaDestino, setContaDestino] = useState('');
-    const [empresaDestino, setEmpresaDestino] = useState('');
 
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
 
+    useEffect(() => {
+        // Limpa o formulário sempre que o modal é aberto
+        if (isOpen) {
+            handleLimpar();
+        }
+    }, [isOpen]);
+    
+    // Assegura que props não sejam undefined durante a renderização inicial
     if (!isOpen) return null;
 
     const handleLimpar = () => {
@@ -24,38 +31,33 @@ export default function LancamentoModal({ isOpen, onClose, onSave, contas, empre
         setDescricao('');
         setValor('');
         setContaOrigem('');
-        setEmpresaAssociada('');
         setContaDestino('');
-        setEmpresaDestino('');
         setError('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setIsSaving(true);
-
-        // Validação para transferência
+        
         if (tipo === 'TRANSFERENCIA' && contaOrigem === contaDestino) {
             setError('A conta de origem e destino não podem ser as mesmas.');
-            setIsSaving(false);
             return;
         }
 
+        setIsSaving(true);
         const payload = {
             tipo,
             data,
             descricao,
-            valor: parseBRL(valor), // Usa o parser para enviar o número correto
+            valor: parseBRL(valor),
             contaOrigem,
-            empresaAssociada,
+            empresaAssociada: clienteMasterNome, 
             contaDestino: tipo === 'TRANSFERENCIA' ? contaDestino : null,
-            empresaDestino: tipo === 'TRANSFERENCIA' ? empresaDestino : null,
+            empresaDestino: tipo === 'TRANSFERENCIA' ? clienteMasterNome : null,
         };
         
         const success = await onSave(payload);
         if (success) {
-            handleLimpar();
             onClose();
         } else {
             setError('Falha ao salvar o lançamento. Verifique os dados e tente novamente.');
@@ -94,38 +96,34 @@ export default function LancamentoModal({ isOpen, onClose, onSave, contas, empre
                         <input type="text" id="descricao" value={descricao} onChange={e => setDescricao(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                           <label htmlFor="contaOrigem" className="block text-sm font-medium text-gray-700">{tipo === 'TRANSFERENCIA' ? 'Conta de Origem' : 'Conta'}</label>
+                    {/* Campo de Conta para Débito/Crédito */}
+                    { (tipo === 'DEBITO' || tipo === 'CREDITO') && (
+                         <div>
+                           <label htmlFor="contaOrigem" className="block text-sm font-medium text-gray-700">Conta Master</label>
                            <select id="contaOrigem" name="contaOrigem" value={contaOrigem} onChange={e => setContaOrigem(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
                                 <option value="">Selecione...</option>
-                                {contas.map(c => <option key={c.contaBancaria} value={c.contaBancaria}>{c.contaBancaria}</option>)}
+                                {/* Garante que contasMaster é um array antes de mapear */}
+                                {Array.isArray(contasMaster) && contasMaster.map(c => <option key={c.contaBancaria} value={c.contaBancaria}>{c.contaBancaria}</option>)}
                            </select>
                         </div>
-                         <div>
-                           <label htmlFor="empresaAssociada" className="block text-sm font-medium text-gray-700">{tipo === 'TRANSFERENCIA' ? 'Empresa de Origem' : 'Empresa'}</label>
-                           <select id="empresaAssociada" name="empresaAssociada" value={empresaAssociada} onChange={e => setEmpresaAssociada(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-                                <option value="">Selecione...</option>
-                                {empresas.map(c => <option key={c} value={c}>{c}</option>)}
-                           </select>
-                        </div>
-                    </div>
+                    )}
                     
+                    {/* Campos de Conta para Transferência */}
                     {tipo === 'TRANSFERENCIA' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                        <div className="space-y-4 border-t pt-4">
+                             <div>
+                                <label htmlFor="contaOrigem" className="block text-sm font-medium text-gray-700">Conta de Origem</label>
+                                <select id="contaOrigem" name="contaOrigem" value={contaOrigem} onChange={e => setContaOrigem(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="">Selecione...</option>
+                                    {Array.isArray(contasMaster) && contasMaster.map(c => <option key={c.contaBancaria + '-origem'} value={c.contaBancaria}>{c.contaBancaria}</option>)}
+                                </select>
+                             </div>
                              <div>
                                 <label htmlFor="contaDestino" className="block text-sm font-medium text-gray-700">Conta de Destino</label>
                                 <select id="contaDestino" name="contaDestino" value={contaDestino} onChange={e => setContaDestino(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
                                     <option value="">Selecione...</option>
-                                    {contas.map(c => <option key={c.contaBancaria} value={c.contaBancaria}>{c.contaBancaria}</option>)}
+                                    {Array.isArray(contasMaster) && contasMaster.map(c => <option key={c.contaBancaria + '-destino'} value={c.contaBancaria}>{c.contaBancaria}</option>)}
                                 </select>
-                            </div>
-                            <div>
-                               <label htmlFor="empresaDestino" className="block text-sm font-medium text-gray-700">Empresa de Destino</label>
-                               <select id="empresaDestino" name="empresaDestino" value={empresaDestino} onChange={e => setEmpresaDestino(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2">
-                                    <option value="">Selecione...</option>
-                                    {empresas.map(c => <option key={c} value={c}>{c}</option>)}
-                               </select>
                             </div>
                         </div>
                     )}
@@ -142,4 +140,4 @@ export default function LancamentoModal({ isOpen, onClose, onSave, contas, empre
             </div>
         </div>
     );
-};
+}
