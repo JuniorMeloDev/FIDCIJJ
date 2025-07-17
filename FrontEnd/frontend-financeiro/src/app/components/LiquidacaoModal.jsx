@@ -3,20 +3,20 @@
 import { useState } from 'react';
 import { formatBRLInput, parseBRL, formatBRLNumber } from '@/app/utils/formatters';
 
-
-export default function LiquidacaoModal({ isOpen, onClose, onConfirm, duplicata }) {
+export default function LiquidacaoModal({ isOpen, onClose, onConfirm, duplicata, contasMaster }) {
     const [dataLiquidacao, setDataLiquidacao] = useState(new Date().toISOString().split('T')[0]);
     const [jurosMora, setJurosMora] = useState('');
+    const [contaBancariaId, setContaBancariaId] = useState('');
 
     if (!isOpen) return null;
 
     const handleConfirmarCredito = () => {
-        onConfirm(duplicata.id, dataLiquidacao, parseBRL(jurosMora));
+        onConfirm(duplicata.id, dataLiquidacao, parseBRL(jurosMora), contaBancariaId);
         onClose();
     };
 
     const handleApenasBaixa = () => {
-        onConfirm(duplicata.id, null, null);
+        onConfirm(duplicata.id, null, null, null);
         onClose();
     };
 
@@ -51,13 +51,32 @@ export default function LiquidacaoModal({ isOpen, onClose, onConfirm, duplicata 
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                         />
                     </div>
+                    <div>
+                        <label htmlFor="contaBancariaId" className="block text-sm font-medium text-gray-700">Conta para crédito</label>
+                        <select
+                            id="contaBancariaId"
+                            value={contaBancariaId}
+                            onChange={(e) => setContaBancariaId(e.target.value)}
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                        >
+                            <option value="">Selecione uma conta...</option>
+                            {contasMaster?.map(conta => (
+                                <option key={conta.id} value={conta.id}>
+                                    {conta.banco} - Ag. {conta.agencia} / CC {conta.contaCorrente}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-
                 <div className="flex flex-col sm:flex-row justify-end gap-4">
                     <button onClick={handleApenasBaixa} className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-md hover:bg-gray-300">
                         Apenas Dar Baixa (Sem Crédito)
                     </button>
-                    <button onClick={handleConfirmarCredito} className="bg-green-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-700">
+                    <button
+                        onClick={handleConfirmarCredito}
+                        className="bg-green-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-700"
+                        disabled={!contaBancariaId}
+                    >
                         Confirmar e Creditar em Conta
                     </button>
                 </div>

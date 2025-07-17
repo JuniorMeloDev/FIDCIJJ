@@ -7,7 +7,7 @@ import ConfirmacaoEstornoModal from '@/app/components/ConfirmacaoEstornoModal';
 import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
 import ConfirmEmailModal from '@/app/components/EmailModal';
 import Pagination from '@/app/components/Pagination';
-import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas'; // Importa o novo componente
+import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas'; 
 
 const ITEMS_PER_PAGE = 7;
 
@@ -16,6 +16,7 @@ export default function ConsultasPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [contasMaster, setContasMaster] = useState([]);
     
     const [filters, setFilters] = useState({
         dataOpInicio: '', dataOpFim: '',
@@ -23,7 +24,6 @@ export default function ConsultasPage() {
         sacado: '', nfCte: '', status: 'Todos'
     });
 
-    // ... (resto dos seus states, como pdfLoading, estornandoId, etc.)
     const [pdfLoading, setPdfLoading] = useState(null);
     const [estornandoId, setEstornandoId] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
@@ -58,9 +58,27 @@ export default function ConsultasPage() {
         }
     };
     
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Este useEffect agora busca os dados iniciais assim que a página carrega
     useEffect(() => {
+        // Função para buscar as contas, que agora vive dentro deste useEffect
+        const fetchContasMaster = async () => {
+            try {
+                const res = await fetch("http://localhost:8080/api/cadastros/contas/master"); // Corrigido endpoint
+                if (!res.ok) throw new Error("Falha ao buscar contas master.");
+                const contas = await res.json();
+                setContasMaster(contas);
+            } catch (error) {
+                console.error(error);
+                // Opcional: notificar o usuário sobre o erro
+                showNotification('Não foi possível carregar as contas bancárias.', 'error');
+            }
+        };
+
+        // Chama as duas funções de busca
         fetchDuplicatas(filters);
-    }, [filters]);
+        fetchContasMaster();
+    }, []); // O array vazio [] garante que isso só rode uma vez
 
     const handleFilterChange = (e) => {
         setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -72,16 +90,38 @@ export default function ConsultasPage() {
     };
 
     const clearFilters = () => {
-        setCurrentPage(1);
         const cleared = { dataOpInicio: '', dataOpFim: '', dataVencInicio: '', dataVencFim: '', sacado: '', nfCte: '', status: 'Todos' };
         setFilters(cleared);
+        setCurrentPage(1);
+        fetchDuplicatas(cleared); // Busca os dados com os filtros limpos
     };
 
     // ... (resto das suas funções handle, como handleEstornar, etc., continuam aqui sem alteração)
     useEffect(() => {const handleClickOutside = (event) => {if (menuRef.current && !menuRef.current.contains(event.target)) {setOpenMenuId(null);}}; document.addEventListener("mousedown", handleClickOutside); return () => {document.removeEventListener("mousedown", handleClickOutside);};}, []);
     const showNotification = (message, type) => { setNotification({ message, type }); setTimeout(() => setNotification({ message: '', type: '' }), 5000); };
     const handleAbrirModalLiquidacao = (duplicata) => { setDuplicataParaLiquidar(duplicata); setIsLiquidarModalOpen(true); setOpenMenuId(null); };
-    const handleConfirmarLiquidacao = async (duplicataId, dataLiquidacao, jurosMora) => { let url = `http://localhost:8080/api/duplicatas/${duplicataId}/liquidar`; const params = new URLSearchParams(); if (dataLiquidacao) params.append('dataLiquidacao', dataLiquidacao); if (jurosMora && jurosMora > 0) params.append('jurosMora', jurosMora); const queryString = params.toString(); if (queryString) url += `?${queryString}`; try { const response = await fetch(url, { method: 'POST' }); if (!response.ok) throw new Error('Falha ao dar baixa na duplicata.'); const duplicataAtualizada = await response.json(); setDuplicatas(duplicatas.map(d => d.id === duplicataAtualizada.id ? duplicataAtualizada : d)); showNotification('Duplicata liquidada com sucesso!', 'success'); } catch (err) { showNotification(err.message, 'error'); } };
+    const handleConfirmarLiquidacao = async (duplicataId, dataLiquidacao, jurosMora, contaBancariaId) => {
+        let url = `http://localhost:8080/api/duplicatas/${duplicataId}/liquidar`;
+        const params = new URLSearchParams();
+        if (dataLiquidacao) params.append('dataLiquidacao', dataLiquidacao);
+        if (jurosMora && jurosMora > 0) params.append('jurosMora', jurosMora);
+        if(contaBancariaId) params.append('contaBancariaId', contaBancariaId); // Adiciona o ID da conta
+    
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+    
+        try {
+            const response = await fetch(url, { method: 'POST' });
+            if (!response.ok) throw new Error('Falha ao dar baixa na duplicata.');
+            const duplicataAtualizada = await response.json();
+            setDuplicatas(duplicatas.map(d => d.id === duplicataAtualizada.id ? duplicataAtualizada : d));
+            showNotification('Duplicata liquidada com sucesso!', 'success');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        } finally {
+            setIsLiquidarModalOpen(false);
+        }
+    };
     const handleEstornar = (duplicataId) => { setOpenMenuId(null); setEstornoInfo({ id: duplicataId }); };
     const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`http://localhost:8080/api/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST' }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } setDuplicatas(duplicatas.map(d => d.id === estornoInfo.id ? { ...d, statusRecebimento: 'Pendente', dataLiquidacao: null, contaLiquidacao: null } : d)); showNotification('Liquidação estornada com sucesso!', 'success'); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
     const handleAbrirEmailModal = (operacaoId, tipoOperacao) => { setOperacaoParaEmail({ id: operacaoId, tipoOperacao: tipoOperacao }); setIsEmailModalOpen(true); setOpenMenuId(null); };
@@ -96,11 +136,18 @@ export default function ConsultasPage() {
     if (loading) return <div className="text-center p-10">A carregar...</div>;
     if (error) return <div className="text-center p-10 text-red-500">Erro: {error}</div>;
 
+    
     return (
         <>
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <ConfirmacaoEstornoModal isOpen={!!estornoInfo} onClose={() => setEstornoInfo(null)} onConfirm={confirmarEstorno} title="Confirmar Estorno" message="Tem a certeza que deseja estornar esta liquidação? A movimentação de caixa correspondente (se existir) será excluída." />
-            <LiquidacaoModal isOpen={isLiquidarModalOpen} onClose={() => setIsLiquidarModalOpen(false)} onConfirm={handleConfirmarLiquidacao} duplicata={duplicataParaLiquidar} />
+            <LiquidacaoModal
+                isOpen={isLiquidarModalOpen}
+                onClose={() => setIsLiquidarModalOpen(false)}
+                onConfirm={handleConfirmarLiquidacao}
+                duplicata={duplicataParaLiquidar}
+                contasMaster={contasMaster}
+            />
             <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSend={handleSendEmail} isSending={isSendingEmail} tipoOperacao={operacaoParaEmail?.tipoOperacao} />
 
             <main className="p-4 sm:p-6 flex flex-col h-full">
@@ -158,7 +205,7 @@ export default function ConsultasPage() {
                                                                         <a href="#" onClick={(e) => { e.preventDefault(); handleAbrirModalLiquidacao(dup); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Liquidar Duplicata</a>
                                                                     )}
                                                                     <a href="#" onClick={(e) => { e.preventDefault(); handleGeneratePdf(dup.operacaoId); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Gerar PDF</a>
-                                                                    <a href="#" onClick={(e) => { e.preventDefault(); handleAbrirEmailModal(dup.operacaoId, dup.tipoOperacao); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Enviar por E-mail</a>
+                                                                    <a href="#" onClick={(e) => { e.preventDefault(); handleAbrirEmailModal(dup.operacaoId, dup.tipoOperacaoNome); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Enviar por E-mail</a>
                                                                 </div>
                                                             </div>
                                                         )}

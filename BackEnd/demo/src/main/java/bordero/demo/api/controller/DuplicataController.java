@@ -35,11 +35,13 @@ public class DuplicataController {
 
     @PostMapping("/{id}/liquidar")
     public ResponseEntity<DuplicataResponseDto> liquidar(
-        @PathVariable Long id, 
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataLiquidacao,
-        @RequestParam(required = false) BigDecimal jurosMora
+        @PathVariable Long id,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataLiquidacao,
+        @RequestParam(required = false) BigDecimal jurosMora,
+        @RequestParam Long contaBancariaId // Este parâmetro será recebido na requisição
     ) {
-        DuplicataResponseDto duplicataAtualizada = operacaoService.liquidarDuplicata(id, dataLiquidacao, jurosMora);
+        // A chamada para o serviço agora inclui o ID da conta bancária
+        DuplicataResponseDto duplicataAtualizada = operacaoService.liquidarDuplicata(id, dataLiquidacao, jurosMora, contaBancariaId);
         return ResponseEntity.ok(duplicataAtualizada);
     }
 

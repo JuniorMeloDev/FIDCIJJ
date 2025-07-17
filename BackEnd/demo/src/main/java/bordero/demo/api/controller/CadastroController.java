@@ -12,7 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections; // Importação corrigida
 import java.util.List;
+import java.util.Optional; // Importação corrigida
 
 @RestController
 @RequestMapping("/api/cadastros")
@@ -35,7 +37,7 @@ public class CadastroController {
         return ResponseEntity.ok(clientes);
     }
 
-      @PutMapping("/clientes/{id}")
+    @PutMapping("/clientes/{id}")
     public ResponseEntity<ClienteDto> atualizarCliente(@PathVariable Long id, @Valid @RequestBody ClienteDto dto) {
         ClienteDto clienteAtualizado = cadastroService.atualizarCliente(id, dto);
         return ResponseEntity.ok(clienteAtualizado);
@@ -62,7 +64,7 @@ public class CadastroController {
         return ResponseEntity.ok(sacados);
     }
 
-     @PutMapping("/sacados/{id}")
+    @PutMapping("/sacados/{id}")
     public ResponseEntity<SacadoDto> atualizarSacado(@PathVariable Long id, @Valid @RequestBody SacadoDto dto) {
         SacadoDto sacadoAtualizado = cadastroService.atualizarSacado(id, dto);
         return ResponseEntity.ok(sacadoAtualizado);
@@ -73,6 +75,8 @@ public class CadastroController {
         cadastroService.excluirSacado(id);
         return ResponseEntity.noContent().build();
     }
+
+    // --- Endpoints para Tipos de Operação ---
 
     @PostMapping("/tipos-operacao")
     public ResponseEntity<TipoOperacaoDto> criarTipoOperacao(@Valid @RequestBody TipoOperacaoDto dto) {
@@ -98,14 +102,20 @@ public class CadastroController {
         return ResponseEntity.noContent().build();
     }
 
-     @GetMapping("/contas/master")
-public ResponseEntity<List<ContaBancariaDto>> listarContasDoClienteMaster() {
-    Cliente master = cadastroService.obterClienteMaster(); // agora usa o CadastroService
-    List<ContaBancariaDto> contas = master.getContasBancarias().stream()
-            .map(cadastroService::toContaBancariaDto)
-            .toList();
-    return ResponseEntity.ok(contas);
-}
-}
+    // --- Endpoint para Contas do Cliente Master ---
 
+    @GetMapping("/contas/master")
+    public ResponseEntity<List<ContaBancariaDto>> listarContasDoClienteMaster() {
+        Optional<Cliente> masterOpt = cadastroService.obterClienteMaster(); // Agora chama o método que retorna Optional
 
+        if (masterOpt.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList()); // Retorna lista vazia se não houver cliente
+        }
+
+        Cliente master = masterOpt.get();
+        List<ContaBancariaDto> contas = master.getContasBancarias().stream()
+                .map(cadastroService::toContaBancariaDto)
+                .toList();
+        return ResponseEntity.ok(contas);
+    }
+}

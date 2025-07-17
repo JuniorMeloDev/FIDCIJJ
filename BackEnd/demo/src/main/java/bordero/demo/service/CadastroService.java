@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,12 +47,11 @@ public class CadastroService {
         return toClienteDto(clienteAtualizado);
     }
 
-      public Cliente obterClienteMaster() {
-    return clienteRepository.findAll(org.springframework.data.domain.Sort.by("id").ascending())
-            .stream()
-            .findFirst()
-            .orElseThrow(() -> new RuntimeException("Nenhum cliente cadastrado."));
-}
+      public Optional<Cliente> obterClienteMaster() {
+        return clienteRepository.findAll(org.springframework.data.domain.Sort.by("id").ascending())
+                .stream()
+                .findFirst();
+    }
 
     
     private void updateClienteFromDto(Cliente cliente, ClienteDto dto) {

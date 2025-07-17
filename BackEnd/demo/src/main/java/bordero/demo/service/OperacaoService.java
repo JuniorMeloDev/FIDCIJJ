@@ -215,7 +215,7 @@ public class OperacaoService {
     }
     
     @Transactional
-    public DuplicataResponseDto liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora) {
+    public DuplicataResponseDto liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora, long contaBancariaId ) {
         log.info("Iniciando liquidação da duplicata ID: {} com data {} e juros/mora de {}", duplicataId, dataLiquidacao, jurosMora);
 
         Duplicata duplicata = duplicataRepository.findById(duplicataId)
@@ -245,7 +245,10 @@ public class OperacaoService {
                 }
             }
             movimentacao.setDescricao("Recebimento " + tipoDocumento + " " + duplicata.getNfCte());
-            movimentacao.setContaBancaria("Itaú"); 
+            ContaBancaria conta = contaBancariaRepository.findById(contaBancariaId)
+            .orElseThrow(() -> new RuntimeException("Conta bancária não encontrada com ID: " + contaBancariaId));
+        // Formata a string com os dados da conta encontrada
+        movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
             movimentacao.setEmpresaAssociada(duplicata.getOperacao().getCliente().getNome());
 
             MovimentacaoCaixa movimentacaoSalva = movimentacaoCaixaRepository.save(movimentacao);
