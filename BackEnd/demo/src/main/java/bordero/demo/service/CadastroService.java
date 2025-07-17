@@ -12,6 +12,7 @@ import bordero.demo.domain.repository.TipoOperacaoRepository;
 import bordero.demo.service.xml.model.Dest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -47,8 +48,8 @@ public class CadastroService {
         return toClienteDto(clienteAtualizado);
     }
 
-      public Optional<Cliente> obterClienteMaster() {
-        return clienteRepository.findAll(org.springframework.data.domain.Sort.by("id").ascending())
+    public Optional<Cliente> obterClienteMaster() {
+        return clienteRepository.findAll(Sort.by("id").ascending())
                 .stream()
                 .findFirst();
     }
