@@ -14,7 +14,7 @@ const API_URL_MOVIMENTACOES = 'http://localhost:8080/api/movimentacoes-caixa';
 const API_URL_DASHBOARD = 'http://localhost:8080/api/dashboard';
 const API_URL_CADASTROS = 'http://localhost:8080/api/cadastros';
 
-const ITEMS_PER_PAGE = 7;
+const ITEMS_PER_PAGE = 6;
 
 export default function FluxoDeCaixaPage() {
     const [movimentacoes, setMovimentacoes] = useState([]);

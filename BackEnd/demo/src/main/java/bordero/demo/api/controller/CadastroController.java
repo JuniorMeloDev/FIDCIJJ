@@ -12,9 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections; // Importação corrigida
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional; // Importação corrigida
+import java.util.Optional; 
 
 @RestController
 @RequestMapping("/api/cadastros")
@@ -118,4 +118,14 @@ public class CadastroController {
                 .toList();
         return ResponseEntity.ok(contas);
     }
+
+    @GetMapping("/clientes/search")
+public ResponseEntity<List<ClienteDto>> buscarClientes(@RequestParam String nome) {
+    return ResponseEntity.ok(cadastroService.buscarClientesPorNome(nome));
+}
+
+@GetMapping("/sacados/search")
+public ResponseEntity<List<SacadoDto>> buscarSacados(@RequestParam String nome) {
+    return ResponseEntity.ok(cadastroService.buscarSacadosPorNome(nome));
+}
 }

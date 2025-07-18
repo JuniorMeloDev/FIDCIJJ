@@ -16,7 +16,7 @@ export default function OperacaoDetalhes({
     setContaBancariaId
 }) {
     return (
-        <section className="bg-white p-6 rounded-lg shadow-md mt-8">
+        <section className="bg-white p-2 rounded-lg shadow-md mt-1">
             <h2 className="text-2xl font-semibold mb-4">Duplicatas da Operação</h2>
 
             <div className="overflow-x-auto">

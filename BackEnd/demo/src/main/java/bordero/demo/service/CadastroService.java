@@ -317,4 +317,18 @@ public class CadastroService {
                 .descricao(tipoOperacao.getDescricao())
                 .build();
     }
+
+    public List<ClienteDto> buscarClientesPorNome(String nome) {
+    return clienteRepository.findByNomeContainingIgnoreCase(nome)
+            .stream()
+            .map(this::toClienteDto)
+            .collect(Collectors.toList());
+}
+
+public List<SacadoDto> buscarSacadosPorNome(String nome) {
+    return sacadoRepository.findByNomeContainingIgnoreCase(nome)
+            .stream()
+            .map(this::toSacadoDto)
+            .collect(Collectors.toList());
+}
 }
