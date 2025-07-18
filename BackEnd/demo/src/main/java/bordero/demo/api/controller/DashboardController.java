@@ -22,10 +22,11 @@ public class DashboardController {
     private final DashboardService service;
 
     @GetMapping("/saldos")
-public ResponseEntity<List<SaldoContaDto>> getSaldos(
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
-) {
-    List<SaldoContaDto> saldos = service.getSaldosPorContaAteData(dataFim);
-    return ResponseEntity.ok(saldos);
-}
+    public ResponseEntity<List<SaldoContaDto>> getSaldos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
+    ) {
+        List<SaldoContaDto> saldos = service.getSaldosPorContaAteData(dataInicio, dataFim);
+        return ResponseEntity.ok(saldos);
+    }
 }

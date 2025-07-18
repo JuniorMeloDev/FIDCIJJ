@@ -23,4 +23,9 @@ public interface MovimentacaoCaixaRepository extends JpaRepository<MovimentacaoC
        "FROM MovimentacaoCaixa m WHERE m.dataMovimento <= :data " +
        "GROUP BY m.contaBancaria")
     List<SaldoContaDto> findSaldosPorContaAteData(@Param("data") LocalDate data);
+
+    @Query("SELECT new bordero.demo.api.dto.SaldoContaDto(m.contaBancaria, SUM(m.valor)) " +
+       "FROM MovimentacaoCaixa m WHERE m.dataMovimento >= :dataInicio AND m.dataMovimento <= :dataFim " +
+       "GROUP BY m.contaBancaria")
+    List<SaldoContaDto> findSaldosPorPeriodo(@Param("dataInicio") LocalDate dataInicio, @Param("dataFim") LocalDate dataFim);
 }

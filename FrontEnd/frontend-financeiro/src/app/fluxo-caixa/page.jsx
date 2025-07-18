@@ -43,8 +43,6 @@ export default function FluxoDeCaixaPage() {
 
     const fetchMovimentacoes = async (currentFilters, currentSortConfig) => {
         setLoading(true);
-        setError(null);
-        
         const params = new URLSearchParams();
         if (currentFilters.dataInicio) params.append('dataInicio', currentFilters.dataInicio);
         if (currentFilters.dataFim) params.append('dataFim', currentFilters.dataFim);
@@ -69,9 +67,15 @@ export default function FluxoDeCaixaPage() {
         }
     };
     
-    const fetchSaldos = async () => {
+    const fetchSaldos = async (currentFilters) => {
+        const params = new URLSearchParams();
+        if (currentFilters.dataInicio) params.append('dataInicio', currentFilters.dataInicio);
+        if (currentFilters.dataFim) params.append('dataFim', currentFilters.dataFim);
+
+        const url = `${API_URL_DASHBOARD}/saldos?${params.toString()}`;
+        
         try {
-            const saldosResponse = await fetch(`${API_URL_DASHBOARD}/saldos`);
+            const saldosResponse = await fetch(url);
             if (!saldosResponse.ok) throw new Error('Falha ao carregar saldos.');
             const saldosData = await saldosResponse.json();
             setSaldos(saldosData);
@@ -108,11 +112,11 @@ export default function FluxoDeCaixaPage() {
         };
         
         fetchStaticData();
-        fetchSaldos();
     }, []);
 
     useEffect(() => {
         fetchMovimentacoes(filters, sortConfig);
+        fetchSaldos(filters);
     }, [filters, sortConfig]);
     
     useEffect(() => {
@@ -142,21 +146,17 @@ export default function FluxoDeCaixaPage() {
         return <FaSortDown />;
     };
 
-    const applyFilters = () => {
-        setCurrentPage(1);
-    };
-
     const clearFilters = () => {
         const cleared = { dataInicio: '', dataFim: '', descricao: '', contaBancaria: '', categoria: 'Todos' };
         setFilters(cleared);
         setCurrentPage(1);
     };
-
-    // --- FUNÇÃO QUE FALTAVA ---
+    
     const handleFilterChange = (e) => {
+        setCurrentPage(1);
         setFilters(prev => ({...prev, [e.target.name]: e.target.value}));
     };
-    
+
     const handleSaveLancamento = async (payload) => {
         try {
             const response = await fetch('http://localhost:8080/api/lancamentos', {
@@ -169,8 +169,7 @@ export default function FluxoDeCaixaPage() {
                 throw new Error(errorText || "Falha ao salvar lançamento.");
             }
             showNotification('Lançamento salvo com sucesso!', 'success');
-            fetchMovimentacoes(filters, sortConfig);
-            fetchSaldos();
+            clearFilters();
             return true;
         } catch (error) {
             showNotification(error.message, 'error');
@@ -189,6 +188,7 @@ export default function FluxoDeCaixaPage() {
             await fetch(`${API_URL_MOVIMENTACOES}/${itemParaExcluir}`, { method: 'DELETE' });
             showNotification('Lançamento excluído com sucesso!', 'success');
             fetchMovimentacoes(filters, sortConfig);
+            fetchSaldos(filters);
         } catch (err) {
             showNotification(err.message, 'error');
         } finally {
@@ -255,6 +255,8 @@ export default function FluxoDeCaixaPage() {
     if (loading && movimentacoes.length === 0) return <div className="text-center p-10">A carregar...</div>;
     if (error) return <div className="text-center p-10 text-red-500">Erro: {error}</div>;
 
+    const saldosTitle = filters.dataInicio && filters.dataFim ? 'Resultado do Período' : 'Saldos Atuais';
+
     return (
         <>
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
@@ -274,7 +276,7 @@ export default function FluxoDeCaixaPage() {
                 </header>
                 
                 <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-700 mb-2">Saldos Atuais</h2>
+                    <h2 className="text-lg font-semibold text-gray-700 mb-2">{saldosTitle}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {saldos.map((saldo, index) => (
                             <div key={index} className="bg-white p-3 rounded-lg shadow">
@@ -292,7 +294,6 @@ export default function FluxoDeCaixaPage() {
                         filters={filters}
                         saldos={saldos}
                         onFilterChange={handleFilterChange}
-                        onApply={applyFilters}
                         onClear={clearFilters}
                     />
                     <div className="flex-grow bg-white p-4 rounded-lg shadow-md">
@@ -340,7 +341,9 @@ export default function FluxoDeCaixaPage() {
                                                                             <div className="border-t my-1"></div>
                                                                         </>
                                                                     )}
-                                                                    <a href="#" onClick={(e) => { e.preventDefault(); handleDeleteRequest(mov.id); }} className={`block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 ${mov.categoria === 'Pagamento de Borderô' || mov.categoria === 'Recebimento' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                                    <a href="#" onClick={(e) => { e.preventDefault(); handleDeleteRequest(mov.id); }} 
+                                                                        className={`block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 ${mov.categoria === 'Pagamento de Borderô' || mov.categoria === 'Recebimento' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                        disabled={mov.categoria === 'Pagamento de Borderô' || mov.categoria === 'Recebimento'}>
                                                                         Excluir Lançamento
                                                                     </a>
                                                                 </div>

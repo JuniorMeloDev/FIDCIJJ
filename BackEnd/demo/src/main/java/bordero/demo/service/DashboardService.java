@@ -21,11 +21,16 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-public List<SaldoContaDto> getSaldosPorContaAteData(LocalDate data) {
-    // Se a data não for fornecida, retorna o saldo atual
-    if (data == null) {
+    public List<SaldoContaDto> getSaldosPorContaAteData(LocalDate dataInicio, LocalDate dataFim) {
+        // Se ambas as datas forem fornecidas, calcula o resultado do período
+        if (dataInicio != null && dataFim != null) {
+            return movimentacaoCaixaRepository.findSaldosPorPeriodo(dataInicio, dataFim);
+        }
+        // Se apenas a data final for fornecida, calcula o saldo acumulado até essa data
+        if (dataFim != null) {
+            return movimentacaoCaixaRepository.findSaldosPorContaAteData(dataFim);
+        }
+        // Se nenhuma data for fornecida, retorna o saldo total atual
         return getSaldosPorConta();
     }
-    return movimentacaoCaixaRepository.findSaldosPorContaAteData(data);
-}
 }
