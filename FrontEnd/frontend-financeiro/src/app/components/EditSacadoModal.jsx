@@ -3,20 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
 
-// Esta função de formatação pode ser mantida ou ajustada conforme a sua necessidade
-const formatTaxaInput = (value) => {
-    if (!value) return '';
-    const cleanValue = String(value).replace(/[^\d,]/g, '');
-    return cleanValue;
-};
-
-// Função para converter a string formatada de volta para um número
-const parseTaxa = (value) => {
-    if (!value) return 0;
-    return parseFloat(String(value).replace(',', '.'));
-}
-
-export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDelete, showNotification, tiposOperacao }) {
+export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDelete, showNotification }) {
     const initialState = {
         nome: '', cnpj: '', ie: '', cep: '', endereco: '', bairro: '', municipio: '', uf: '', fone: '', condicoesPagamento: []
     };
@@ -27,20 +14,13 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
     useEffect(() => {
         if (isOpen) {
             if (sacado) {
-                const formattedCondicoes = sacado.condicoesPagamento ? sacado.condicoesPagamento.map(c => ({
-                    ...c,
-                    taxaJuros: c.taxaJuros ? String(c.taxaJuros).replace('.', ',') : '',
-                    // Garante que estamos a usar o ID para o valor do select
-                    tipoOperacaoId: c.tipoOperacao?.id || c.tipoOperacaoId
-                })) : [];
-
-                setFormData({ 
+                setFormData({
                     ...initialState,
                     ...sacado,
                     cnpj: sacado.cnpj ? formatCnpjCpf(sacado.cnpj) : '',
                     fone: sacado.fone ? formatTelefone(sacado.fone) : '',
                     cep: sacado.cep ? formatCep(sacado.cep) : '',
-                    condicoesPagamento: formattedCondicoes
+                    condicoesPagamento: sacado.condicoesPagamento || []
                 });
                 setDataFetched(true);
             } else {
@@ -67,7 +47,7 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                 nome: data.razao_social || '',
                 fone: data.ddd_telefone_1 ? formatTelefone(`${data.ddd_telefone_1}${data.telefone_1 || ''}`) : '',
                 cep: data.cep ? formatCep(data.cep) : '',
-                endereco: `${data.logradouro || ''}, ${data.numero || ''}`,
+                endereco: `${data.logouro || ''}, ${data.numero || ''}`,
                 bairro: data.bairro || '',
                 municipio: data.municipio || '',
                 uf: data.uf || '',
@@ -100,33 +80,15 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
         const condicoes = [...formData.condicoesPagamento];
 
         if (condicoes[index]) {
-            let finalValue = value;
-            if (name === 'taxaJuros') {
-                finalValue = formatTaxaInput(value);
-            }
-            condicoes[index][name] = finalValue;
-
-            if (name === 'tipoOperacaoId') {
-                const tipoSelecionado = tiposOperacao.find(op => op.id === parseInt(value));
-                if (tipoSelecionado && tipoSelecionado.taxaJuros) {
-                    condicoes[index]['taxaJuros'] = String(tipoSelecionado.taxaJuros).replace('.', ',');
-                } else {
-                    condicoes[index]['taxaJuros'] = '';
-                }
-            }
-
+            condicoes[index][name] = value;
             setFormData(prev => ({ ...prev, condicoesPagamento: condicoes }));
         }
     };
 
     const addCondicao = () => {
-        const defaultTipoId = tiposOperacao && tiposOperacao.length > 0 ? tiposOperacao[0].id : '';
-        const tipoSelecionado = tiposOperacao.find(op => op.id === defaultTipoId);
-        const taxaPadrao = tipoSelecionado && tipoSelecionado.taxaJuros ? String(tipoSelecionado.taxaJuros).replace('.', ',') : '';
-        
         setFormData(prev => ({
             ...prev,
-            condicoesPagamento: [...prev.condicoesPagamento, { tipoOperacaoId: defaultTipoId, taxaJuros: taxaPadrao, prazos: '' }]
+            condicoesPagamento: [...prev.condicoesPagamento, { parcelas: '1', prazos: '' }]
         }));
     };
 
@@ -144,7 +106,7 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
             cep: formData.cep?.replace(/\D/g, ''),
             condicoesPagamento: formData.condicoesPagamento.map(c => ({
                 ...c,
-                taxaJuros: parseTaxa(c.taxaJuros)
+                parcelas: parseInt(c.parcelas, 10) || 1
             }))
         }; 
         onSave(sacado?.id, dataToSave); 
@@ -184,26 +146,19 @@ export default function EditSacadoModal({ isOpen, onClose, sacado, onSave, onDel
                             </div>
                             <div className="border-t pt-3 mt-3">
                                 <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-md font-semibold text-gray-800">Condições de Pagamento</h3>
+                                    <h3 className="text-md font-semibold text-gray-800">Condições de Pagamento Padrão</h3>
                                     <button type="button" onClick={addCondicao} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">+ Adicionar</button>
                                 </div>
                                 <div className="space-y-2 max-h-28 overflow-y-auto pr-2 border rounded-md p-2">
                                     {formData.condicoesPagamento?.length > 0 && (
-                                        <div className="grid grid-cols-4 gap-2 pr-12 text-center mb-1">
-                                            <label className="block text-xs font-bold text-gray-500">Tipo de Operação</label>
-                                            <label className="block text-xs font-bold text-gray-500">Taxa (%)</label>
+                                        <div className="grid grid-cols-3 gap-2 pr-12 text-center mb-1">
+                                            <label className="block text-xs font-bold text-gray-500">Parcelas</label>
                                             <label className="block text-xs font-bold text-gray-500">Prazos</label>
                                         </div>
                                     )}
                                     {formData.condicoesPagamento?.length > 0 ? formData.condicoesPagamento.map((cond, index) => (
-                                        <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                                            <select name="tipoOperacaoId" value={cond.tipoOperacaoId || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm">
-                                                <option value="">Selecione...</option>
-                                                {tiposOperacao.map(op => (
-                                                    <option key={op.id} value={op.id}>{op.nome}</option>
-                                                ))}
-                                            </select>
-                                            <input type="text" name="taxaJuros" placeholder="0,00" value={cond.taxaJuros || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm text-right" />
+                                        <div key={index} className="grid grid-cols-3 gap-2 items-center">
+                                            <input type="number" name="parcelas" placeholder="1" min="1" value={cond.parcelas || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm text-center" />
                                             <input type="text" name="prazos" placeholder="ex: 15/30" value={cond.prazos || ''} onChange={e => handleCondicaoChange(index, e)} className="border-gray-300 rounded-md p-1.5 text-sm" />
                                             <button type="button" onClick={() => removeCondicao(index)} className="bg-red-100 text-red-700 text-xs font-semibold py-1.5 px-2 rounded-md hover:bg-red-200">Remover</button>
                                         </div>

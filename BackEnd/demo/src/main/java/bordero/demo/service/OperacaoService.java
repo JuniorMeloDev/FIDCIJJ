@@ -36,7 +36,6 @@ public class OperacaoService {
     private final ContaBancariaRepository contaBancariaRepository;
 
     @Transactional
-
     public Long salvarOperacao(OperacaoRequestDto operacaoDto) {
         log.info("Iniciando salvamento da operação para a empresa: {}", operacaoDto.getEmpresaCedente());
 
@@ -53,15 +52,11 @@ public class OperacaoService {
         for (NotaFiscalDto nfDto : operacaoDto.getNotasFiscais()) {
             valorTotalOperacao = valorTotalOperacao.add(nfDto.getValorNf());
 
-            Sacado sacado = sacadoRepository.findByNomeIgnoreCase(nfDto.getClienteSacado())
+            sacadoRepository.findByNomeIgnoreCase(nfDto.getClienteSacado())
                     .orElseThrow(() -> new RuntimeException("Sacado '" + nfDto.getClienteSacado() + "' não encontrado."));
-
-            CondicaoPagamento condicao = sacado.getCondicoesPagamento().stream()
-                    .filter(cp -> cp.getTipoOperacao().getId().equals(tipoOperacao.getId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Nenhuma condição de pagamento encontrada para o Sacado '" + sacado.getNome() + "' com o tipo de operação '" + tipoOperacao.getNome() + "'."));
-
-            CalculoResponseDto calculoResult = calcularJurosComCondicao(operacaoDto.getDataOperacao(), nfDto, condicao);
+            
+            // A taxa de juros agora vem diretamente do Tipo de Operação geral da operação.
+            CalculoResponseDto calculoResult = calcularJurosComTipoOperacao(operacaoDto.getDataOperacao(), nfDto, tipoOperacao);
             jurosTotalOperacao = jurosTotalOperacao.add(calculoResult.getTotalJuros());
 
             for (ParcelaDto parcela : calculoResult.getParcelasCalculadas()) {
@@ -116,16 +111,8 @@ public class OperacaoService {
 
      @Transactional(readOnly = true)
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
-        Sacado sacado = sacadoRepository.findByNomeIgnoreCase(request.getClienteSacado())
-                .orElseThrow(() -> new RuntimeException("Sacado '" + request.getClienteSacado() + "' não encontrado."));
-
         TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(request.getTipoOperacaoId())
                 .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + request.getTipoOperacaoId() + " não encontrado."));
-
-        CondicaoPagamento condicao = sacado.getCondicoesPagamento().stream()
-                .filter(cp -> cp.getTipoOperacao().getId().equals(tipoOperacao.getId()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Nenhuma condição de pagamento encontrada para o Sacado '" + sacado.getNome() + "' com o tipo de operação '" + tipoOperacao.getNome() + "'."));
 
         NotaFiscalDto nfDto = new NotaFiscalDto();
         nfDto.setValorNf(request.getValorNf());
@@ -133,56 +120,56 @@ public class OperacaoService {
         nfDto.setDataNf(request.getDataNf());
         nfDto.setPrazos(request.getPrazos());
 
-        return calcularJurosComCondicao(request.getDataOperacao(), nfDto, condicao);
+        return calcularJurosComTipoOperacao(request.getDataOperacao(), nfDto, tipoOperacao);
     }
     
-    private CalculoResponseDto calcularJurosComCondicao(LocalDate dataOperacao, NotaFiscalDto nf, CondicaoPagamento condicao) {
-    BigDecimal valorTotal = nf.getValorNf();
-    int numParcelas = nf.getParcelas();
-    String[] prazosStr = nf.getPrazos().split("/");
+    private CalculoResponseDto calcularJurosComTipoOperacao(LocalDate dataOperacao, NotaFiscalDto nf, TipoOperacao tipoOperacao) {
+        BigDecimal valorTotal = nf.getValorNf();
+        int numParcelas = nf.getParcelas();
+        String[] prazosStr = nf.getPrazos().split("/");
 
-    BigDecimal totalJuros = BigDecimal.ZERO;
-    List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
-    BigDecimal valorTotalParcelas = BigDecimal.ZERO;
-    BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
+        BigDecimal totalJuros = BigDecimal.ZERO;
+        List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
+        BigDecimal valorTotalParcelas = BigDecimal.ZERO;
+        BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
 
-    for (int i = 0; i < prazosStr.length; i++) {
-        int prazoDias = Integer.parseInt(prazosStr[i].trim());
-        LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
-        LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
-        long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
+        for (int i = 0; i < prazosStr.length; i++) {
+            int prazoDias = Integer.parseInt(prazosStr[i].trim());
+            LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
+            LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
+            long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
 
-        BigDecimal jurosParcela = valorParcelaBase
-            .multiply(condicao.getTaxaJuros().divide(new BigDecimal(100)))
-            .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
-            .multiply(new BigDecimal(diasCorridos));
+            BigDecimal jurosParcela = valorParcelaBase
+                .multiply(tipoOperacao.getTaxaJuros().divide(new BigDecimal(100)))
+                .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal(diasCorridos));
 
-        jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
-        totalJuros = totalJuros.add(jurosParcela);
-        valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
+            jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
+            totalJuros = totalJuros.add(jurosParcela);
+            valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
 
-        parcelasCalculadas.add(ParcelaDto.builder()
-            .numeroParcela(i + 1)
-            .dataVencimento(dataVencimento)
-            .valorParcela(valorParcelaBase)
-            .jurosParcela(jurosParcela)
-            .build());
+            parcelasCalculadas.add(ParcelaDto.builder()
+                .numeroParcela(i + 1)
+                .dataVencimento(dataVencimento)
+                .valorParcela(valorParcelaBase)
+                .jurosParcela(jurosParcela)
+                .build());
+        }
+
+        BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
+        if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
+            ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
+            ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
+        }
+
+        BigDecimal valorLiquido = valorTotal.subtract(totalJuros);
+
+        return CalculoResponseDto.builder()
+            .totalJuros(totalJuros)
+            .valorLiquido(valorLiquido)
+            .parcelasCalculadas(parcelasCalculadas)
+            .build();
     }
-
-    BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
-    if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
-        ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
-        ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
-    }
-
-    BigDecimal valorLiquido = valorTotal.subtract(totalJuros);
-
-    return CalculoResponseDto.builder()
-        .totalJuros(totalJuros)
-        .valorLiquido(valorLiquido)
-        .parcelasCalculadas(parcelasCalculadas)
-        .build();
-}
 
     private void criarMovimentacaoDeSaida(Operacao operacao, Long contaBancariaId) {
         MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();

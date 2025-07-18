@@ -32,6 +32,8 @@ export default function OperacaoBorderoPage() {
     const [clienteParaCriar, setClienteParaCriar] = useState(null);
     const [sacadoParaCriar, setSacadoParaCriar] = useState(null);
     const [xmlDataPendente, setXmlDataPendente] = useState(null);
+    const [condicoesSacado, setCondicoesSacado] = useState([]);
+
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -124,10 +126,8 @@ export default function OperacaoBorderoPage() {
         }) : [];
         const prazosString = prazosArray.join('/');
 
-        // --- CORREÇÃO DEFINITIVA PARA O VALOR DO XML ---
         let valorFormatado = '';
         if (data.valorTotal) {
-            // Garante que o número tenha duas casas decimais e remove o ponto
             const valorEmCentavosString = data.valorTotal.toFixed(2).replace('.', '');
             valorFormatado = formatBRLInput(valorEmCentavosString);
         }
@@ -182,19 +182,15 @@ export default function OperacaoBorderoPage() {
     };
 
     const handleSelectSacado = (sacado) => {
-        if (!tipoOperacaoId) {
-            showNotification('Por favor, selecione um Tipo de Operação primeiro.', 'error');
-            setNovaNf(prev => ({ ...prev, clienteSacado: sacado.nome }));
-            return;
-        }
-        const condicao = sacado.condicoesPagamento.find(c => c.tipoOperacaoId === parseInt(tipoOperacaoId));
-        if (condicao) {
-            const parcelas = condicao.prazos.split('/').length || 1;
+        setCondicoesSacado(sacado.condicoesPagamento || []);
+
+        if (sacado.condicoesPagamento && sacado.condicoesPagamento.length > 0) {
+            const condicaoPadrao = sacado.condicoesPagamento[0];
             setNovaNf(prev => ({
                 ...prev,
                 clienteSacado: sacado.nome,
-                prazos: condicao.prazos,
-                parcelas: String(parcelas)
+                prazos: condicaoPadrao.prazos,
+                parcelas: String(condicaoPadrao.parcelas)
             }));
             showNotification('Prazos e parcelas preenchidos automaticamente.', 'success');
         } else {
@@ -306,6 +302,7 @@ export default function OperacaoBorderoPage() {
         setNotasFiscais([]);
         setDescontos([]);
         setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '' });
+        setCondicoesSacado([]);
         showNotification('Formulário limpo.', 'success');
     };
 
@@ -322,7 +319,7 @@ export default function OperacaoBorderoPage() {
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <DescontoModal isOpen={isDescontoModalOpen} onClose={() => setIsDescontoModalOpen(false)} onSave={(d) => setDescontos([...descontos, d])} />
             <EditClienteModal isOpen={!!clienteParaCriar} onClose={() => setClienteParaCriar(null)} cliente={clienteParaCriar} onSave={handleSaveNovoCliente} showNotification={showNotification} />
-            <EditSacadoModal isOpen={!!sacadoParaCriar} onClose={() => setSacadoParaCriar(null)} sacado={sacadoParaCriar} onSave={handleSaveNovoSacado} showNotification={showNotification} tiposOperacao={tiposOperacao} />
+            <EditSacadoModal isOpen={!!sacadoParaCriar} onClose={() => setSacadoParaCriar(null)} sacado={sacadoParaCriar} onSave={handleSaveNovoSacado} showNotification={showNotification} />
             
             <main className="p-4 sm:p-6 flex flex-col h-full">
                 <header className="mb-4 flex justify-between items-center">
@@ -357,6 +354,8 @@ export default function OperacaoBorderoPage() {
                     isLoading={isLoading}
                     onSelectSacado={handleSelectSacado}
                     fetchSacados={fetchSacados}
+                    condicoesSacado={condicoesSacado}
+                    setNovaNf={setNovaNf}
                 />
 
                 <OperacaoDetalhes 

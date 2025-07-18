@@ -7,8 +7,26 @@ export default function AdicionarNotaFiscalForm({
     handleAddNotaFiscal, 
     isLoading,
     onSelectSacado,
-    fetchSacados
+    fetchSacados,
+    condicoesSacado,
+    setNovaNf 
 }) {
+    const handleCondicaoChange = (e) => {
+        const selectedIndex = e.target.value;
+        if (selectedIndex === "manual") {
+            setNovaNf(prev => ({ ...prev, parcelas: '1', prazos: '' }));
+        } else {
+            const condicao = condicoesSacado[selectedIndex];
+            if (condicao) {
+                setNovaNf(prev => ({
+                    ...prev,
+                    parcelas: String(condicao.parcelas),
+                    prazos: condicao.prazos,
+                }));
+            }
+        }
+    };
+    
     return (
         <section className="bg-white p-2 rounded-lg shadow-md mb-1">
           <h2 className="text-2xl font-semibold mb-4">Adicionar Nota Fiscal / CT-e</h2>
@@ -41,15 +59,35 @@ export default function AdicionarNotaFiscalForm({
               <input type="text" name="valorNf" value={novaNf.valorNf} onChange={handleInputChange} placeholder="R$ 0,00" required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
             </div>
             
-             <div>
-              <label htmlFor="parcelas" className="block text-sm font-medium text-gray-700">Parcelas</label>
-              <input type="number" name="parcelas" value={novaNf.parcelas} onChange={handleInputChange} placeholder="1" min="1" required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
-            </div>
-
-            <div className="lg:col-span-2">
-              <label htmlFor="prazos" className="block text-sm font-medium text-gray-700">Prazos</label>
-              <input type="text" name="prazos" value={novaNf.prazos} onChange={handleInputChange} placeholder="Ex: 15/30/45" required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
-            </div>
+            {condicoesSacado && condicoesSacado.length > 0 ? (
+                <div className="lg:col-span-2">
+                    <label htmlFor="condicao" className="block text-sm font-medium text-gray-700">Condição de Pagamento</label>
+                    <select
+                        id="condicao"
+                        name="condicao"
+                        onChange={handleCondicaoChange}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"
+                    >
+                        {condicoesSacado.map((c, index) => (
+                            <option key={index} value={index}>
+                                {c.parcelas}x - Prazos: {c.prazos}
+                            </option>
+                        ))}
+                        <option value="manual">Digitar manualmente</option>
+                    </select>
+                </div>
+            ) : (
+                <>
+                    <div>
+                        <label htmlFor="parcelas" className="block text-sm font-medium text-gray-700">Parcelas</label>
+                        <input type="number" name="parcelas" value={novaNf.parcelas} onChange={handleInputChange} placeholder="1" min="1" required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
+                    </div>
+                    <div className="lg:col-span-1">
+                        <label htmlFor="prazos" className="block text-sm font-medium text-gray-700">Prazos</label>
+                        <input type="text" name="prazos" value={novaNf.prazos} onChange={handleInputChange} placeholder="Ex: 15/30/45" required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2"/>
+                    </div>
+                </>
+            )}
             
             <div className="lg:col-start-4">
               <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300">

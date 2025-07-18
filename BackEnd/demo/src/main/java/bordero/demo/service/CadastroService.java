@@ -132,12 +132,8 @@ public class CadastroService {
 
         if (dto.getCondicoesPagamento() != null) {
             dto.getCondicoesPagamento().forEach(condicaoDto -> {
-                TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(condicaoDto.getTipoOperacaoId())
-                    .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + condicaoDto.getTipoOperacaoId() + " não encontrado."));
-
                 CondicaoPagamento condicao = new CondicaoPagamento();
-                condicao.setTipoOperacao(tipoOperacao);
-                condicao.setTaxaJuros(condicaoDto.getTaxaJuros());
+                condicao.setParcelas(condicaoDto.getParcelas());
                 condicao.setPrazos(condicaoDto.getPrazos());
                 condicao.setSacado(sacado);
                 sacado.getCondicoesPagamento().add(condicao);
@@ -300,9 +296,7 @@ public class CadastroService {
     private CondicaoPagamentoDto toCondicaoPagamentoDto(CondicaoPagamento condicao) {
         return CondicaoPagamentoDto.builder()
                 .id(condicao.getId())
-                .tipoOperacaoId(condicao.getTipoOperacao().getId())
-                .tipoOperacaoNome(condicao.getTipoOperacao().getNome())
-                .taxaJuros(condicao.getTaxaJuros())
+                .parcelas(condicao.getParcelas())
                 .prazos(condicao.getPrazos())
                 .build();
     }
