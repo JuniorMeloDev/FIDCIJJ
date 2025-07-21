@@ -16,7 +16,7 @@ export default function OperacaoBorderoPage() {
     const [dataOperacao, setDataOperacao] = useState(new Date().toISOString().split('T')[0]);
     const [tipoOperacaoId, setTipoOperacaoId] = useState('');
     const [empresaCedente, setEmpresaCedente] = useState('');
-    const [novaNf, setNovaNf] = useState({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '' });
+    const [novaNf, setNovaNf] = useState({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
     const [notasFiscais, setNotasFiscais] = useState([]);
     const [descontos, setDescontos] = useState([]);
     const [contasBancarias, setContasBancarias] = useState([]);
@@ -139,6 +139,7 @@ export default function OperacaoBorderoPage() {
             clienteSacado: data.sacado.nome || '',
             parcelas: data.parcelas ? String(data.parcelas.length) : '1',
             prazos: prazosString,
+            peso: '',
         });
         setEmpresaCedente(data.emitente.nome || '');
         showNotification("Dados do XML preenchidos com sucesso!", "success");
@@ -223,7 +224,8 @@ export default function OperacaoBorderoPage() {
             dataNf: novaNf.dataNf, 
             valorNf: valorNfFloat, 
             parcelas: parseInt(novaNf.parcelas) || 1, 
-            prazos: novaNf.prazos 
+            prazos: novaNf.prazos,
+            peso: parseFloat(String(novaNf.peso).replace(',', '.')) || null
         };
         try {
             const response = await fetch(`${API_URL}/operacoes/calcular-juros`, {
@@ -245,7 +247,7 @@ export default function OperacaoBorderoPage() {
                 valorLiquidoCalculado: calculoResult.valorLiquido,
             };
             setNotasFiscais([...notasFiscais, nfParaAdicionar]);
-            setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '' });
+            setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
         } catch (error) {
             showNotification(error.message, 'error');
         } finally {
@@ -272,7 +274,8 @@ export default function OperacaoBorderoPage() {
             notasFiscais: notasFiscais.map(nf => ({
                 ...nf,
                 jurosCalculado: undefined,
-                valorLiquidoCalculado: undefined
+                valorLiquidoCalculado: undefined,
+                peso: parseFloat(String(nf.peso).replace(',', '.')) || null
             }))
         };
         try {
@@ -301,7 +304,7 @@ export default function OperacaoBorderoPage() {
         setEmpresaCedente('');
         setNotasFiscais([]);
         setDescontos([]);
-        setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '' });
+        setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
         setCondicoesSacado([]);
         showNotification('Formulário limpo.', 'success');
     };
@@ -310,9 +313,16 @@ export default function OperacaoBorderoPage() {
         const valorTotalBruto = notasFiscais.reduce((acc, nf) => acc + nf.valorNf, 0);
         const desagioTotal = notasFiscais.reduce((acc, nf) => acc + (nf.jurosCalculado || 0), 0);
         const totalOutrosDescontos = descontos.reduce((acc, d) => acc + d.valor, 0);
-        const liquidoOperacao = valorTotalBruto - desagioTotal - totalOutrosDescontos;
+
+        const selectedOperacao = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
+        const isValorFixoType = selectedOperacao && selectedOperacao.valorFixo > 0;
+
+        const liquidoOperacao = isValorFixoType
+            ? valorTotalBruto - totalOutrosDescontos
+            : valorTotalBruto - desagioTotal - totalOutrosDescontos;
+
         return { valorTotalBruto, desagioTotal, totalOutrosDescontos, liquidoOperacao };
-    }, [notasFiscais, descontos]);
+    }, [notasFiscais, descontos, tipoOperacaoId, tiposOperacao]);
     
     return (
         <>

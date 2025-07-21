@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/relatorios")
@@ -45,10 +46,11 @@ public class RelatorioController {
             @RequestParam(required = false) String descricao,
             @RequestParam(required = false) String conta,
             @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) String tipoValor,
             @RequestParam(defaultValue = "dataMovimento") String sort,
             @RequestParam(defaultValue = "DESC") String direction
     ) {
-        List<MovimentacaoCaixaResponseDto> movimentacoes = movimentacaoCaixaService.listarComFiltros(dataInicio, dataFim, descricao, conta, categoria, sort, direction);
+        List<MovimentacaoCaixaResponseDto> movimentacoes = movimentacaoCaixaService.listarComFiltros(dataInicio, dataFim, descricao, conta, categoria, sort, direction, tipoValor);
         byte[] pdfBytes = pdfGenerationService.generateFluxoCaixaPdf(movimentacoes, dataInicio, dataFim, conta, categoria);
 
         HttpHeaders headers = new HttpHeaders();
@@ -67,7 +69,6 @@ public class RelatorioController {
             @RequestParam(required = false) String sacado,
             @RequestParam(required = false) String status
     ) {
-        // Adicionado "dataOperacao" e "DESC" como parâmetros de ordenação padrão para o relatório
         List<DuplicataResponseDto> duplicatas = operacaoService.listarTodasAsDuplicatas(dataInicio, dataFim, null, null, sacado, null, null, status, clienteId, tipoOperacaoId, "dataOperacao", "DESC");
         
         String clienteNome = clienteId != null ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null) : null;
@@ -88,10 +89,12 @@ public class RelatorioController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
             @RequestParam(required = false) Long tipoOperacaoId,
             @RequestParam(required = false) Long clienteId,
-            @RequestParam(required = false) String sacado
+            @RequestParam(required = false) String sacado,
+            @RequestParam(required = false) String contaBancaria
     ) {
-        DashboardMetricsDto metrics = dashboardService.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId, clienteId, sacado);
-
+        // Correção: Adicionado 'null' para o parâmetro diasVencimento que faltava
+        DashboardMetricsDto metrics = dashboardService.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId, clienteId, sacado, contaBancaria, null);
+        
         String clienteNome = clienteId != null ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null) : null;
         String tipoOperacaoNome = tipoOperacaoId != null ? tipoOperacaoRepository.findById(tipoOperacaoId).map(TipoOperacao::getNome).orElse(null) : null;
 

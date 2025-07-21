@@ -12,6 +12,9 @@ public class DashboardMetricsDto {
     private List<RankingDto> topClientes;
     private List<RankingDto> topSacados;
     private List<DuplicataResponseDto> vencimentosProximos;
+    private BigDecimal totalJuros;
+    private BigDecimal totalDespesas;
+    private BigDecimal lucroLiquido;
 
     @Data
     @Builder

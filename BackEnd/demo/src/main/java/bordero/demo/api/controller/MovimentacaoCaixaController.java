@@ -25,10 +25,11 @@ public class MovimentacaoCaixaController {
         @RequestParam(required = false) String conta,
         @RequestParam(required = false) String categoria,
         @RequestParam(required = false, defaultValue = "dataMovimento") String sort,
-        @RequestParam(required = false, defaultValue = "DESC") String direction
+        @RequestParam(required = false, defaultValue = "DESC") String direction,
+        @RequestParam(required = false) String tipoValor
     ) {
-        // Passa os novos parâmetros para o serviço
-        List<MovimentacaoCaixaResponseDto> lista = service.listarComFiltros(dataInicio, dataFim, descricao, conta, categoria, sort, direction);
+        // Passa todos os parâmetros para o serviço, incluindo o novo tipoValor
+        List<MovimentacaoCaixaResponseDto> lista = service.listarComFiltros(dataInicio, dataFim, descricao, conta, categoria, sort, direction, tipoValor);
         return ResponseEntity.ok(lista);
     }
 

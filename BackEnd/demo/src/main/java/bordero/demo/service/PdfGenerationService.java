@@ -199,7 +199,7 @@ public class PdfGenerationService {
         BigDecimal totalBruto = duplicatas.stream().map(DuplicataResponseDto::getValorBruto).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalJuros = duplicatas.stream().map(DuplicataResponseDto::getValorJuros).reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        document.add(new Paragraph("Quantidade de NF's operadas: " + totalNfs).setBold().setMarginTop(10));
+        document.add(new Paragraph("Quantidade de NF/Ct-e's operadas: " + totalNfs).setBold().setMarginTop(10));
         document.add(new Paragraph("Valor Total Bruto: " + formatCurrency(totalBruto)).setBold());
         document.add(new Paragraph("Total de Juros: " + formatCurrency(totalJuros)).setBold());
 

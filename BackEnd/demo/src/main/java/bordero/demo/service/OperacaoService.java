@@ -74,8 +74,14 @@ public class OperacaoService {
 
         BigDecimal totalDescontosAdicionais = operacaoDto.getDescontos() != null ? operacaoDto.getDescontos().stream()
                 .map(DescontoDto::getValor).reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
+        
+        BigDecimal valorLiquidoFinal;
 
-        BigDecimal valorLiquidoFinal = valorTotalOperacao.subtract(jurosTotalOperacao).subtract(totalDescontosAdicionais);
+        if (tipoOperacao.getValorFixo() != null && tipoOperacao.getValorFixo().compareTo(BigDecimal.ZERO) > 0) {
+            valorLiquidoFinal = valorTotalOperacao.subtract(totalDescontosAdicionais);
+        } else {
+            valorLiquidoFinal = valorTotalOperacao.subtract(jurosTotalOperacao).subtract(totalDescontosAdicionais);
+        }
 
         Operacao operacao = new Operacao();
         operacao.setDataOperacao(operacaoDto.getDataOperacao());
@@ -119,6 +125,7 @@ public class OperacaoService {
         nfDto.setParcelas(request.getParcelas());
         nfDto.setDataNf(request.getDataNf());
         nfDto.setPrazos(request.getPrazos());
+        nfDto.setPeso(request.getPeso());
 
         return calcularJurosComTipoOperacao(request.getDataOperacao(), nfDto, tipoOperacao);
     }
@@ -128,41 +135,82 @@ public class OperacaoService {
         int numParcelas = nf.getParcelas();
         String[] prazosStr = nf.getPrazos().split("/");
 
-        BigDecimal totalJuros = BigDecimal.ZERO;
+        BigDecimal totalJuros;
+        BigDecimal valorLiquido;
         List<ParcelaDto> parcelasCalculadas = new ArrayList<>();
-        BigDecimal valorTotalParcelas = BigDecimal.ZERO;
-        BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
 
-        for (int i = 0; i < prazosStr.length; i++) {
-            int prazoDias = Integer.parseInt(prazosStr[i].trim());
-            LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
-            LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
-            long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
+        if (tipoOperacao.getValorFixo() != null && tipoOperacao.getValorFixo().compareTo(BigDecimal.ZERO) > 0 && nf.getPeso() != null && nf.getPeso().compareTo(BigDecimal.ZERO) > 0) {
+            totalJuros = nf.getPeso().multiply(tipoOperacao.getValorFixo());
+            valorLiquido = valorTotal;
 
-            BigDecimal jurosParcela = valorParcelaBase
-                .multiply(tipoOperacao.getTaxaJuros().divide(new BigDecimal(100)))
-                .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal(diasCorridos));
+            BigDecimal jurosPorParcela = totalJuros.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
+            BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
+            BigDecimal totalJurosDistribuido = BigDecimal.ZERO;
+            BigDecimal valorTotalParcelas = BigDecimal.ZERO;
 
-            jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
-            totalJuros = totalJuros.add(jurosParcela);
-            valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
+            for (int i = 0; i < prazosStr.length; i++) {
+                int prazoDias = Integer.parseInt(prazosStr[i].trim());
+                LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
+                LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
+                
+                totalJurosDistribuido = totalJurosDistribuido.add(jurosPorParcela);
+                valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
 
-            parcelasCalculadas.add(ParcelaDto.builder()
-                .numeroParcela(i + 1)
-                .dataVencimento(dataVencimento)
-                .valorParcela(valorParcelaBase)
-                .jurosParcela(jurosParcela)
-                .build());
+                parcelasCalculadas.add(ParcelaDto.builder()
+                    .numeroParcela(i + 1)
+                    .dataVencimento(dataVencimento)
+                    .valorParcela(valorParcelaBase)
+                    .jurosParcela(jurosPorParcela)
+                    .build());
+            }
+
+            BigDecimal diferencaJuros = totalJuros.subtract(totalJurosDistribuido);
+            if (diferencaJuros.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
+                ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
+                ultimaParcela.setJurosParcela(ultimaParcela.getJurosParcela().add(diferencaJuros));
+            }
+
+            BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
+            if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
+                ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
+                ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
+            }
+        } else {
+            totalJuros = BigDecimal.ZERO;
+            BigDecimal valorTotalParcelas = BigDecimal.ZERO;
+            BigDecimal valorParcelaBase = valorTotal.divide(new BigDecimal(numParcelas), 2, RoundingMode.HALF_UP);
+
+            for (int i = 0; i < prazosStr.length; i++) {
+                int prazoDias = Integer.parseInt(prazosStr[i].trim());
+                LocalDate dataVencimentoBase = nf.getDataNf().plusDays(prazoDias);
+                LocalDate dataVencimento = proximoDiaUtil(dataVencimentoBase);
+                long diasCorridos = ChronoUnit.DAYS.between(dataOperacao, dataVencimento);
+
+                BigDecimal jurosParcela = valorParcelaBase
+                    .multiply(tipoOperacao.getTaxaJuros().divide(new BigDecimal(100)))
+                    .divide(new BigDecimal("30"), 10, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal(diasCorridos));
+
+                jurosParcela = jurosParcela.setScale(2, RoundingMode.HALF_UP);
+                totalJuros = totalJuros.add(jurosParcela);
+                valorTotalParcelas = valorTotalParcelas.add(valorParcelaBase);
+
+                parcelasCalculadas.add(ParcelaDto.builder()
+                    .numeroParcela(i + 1)
+                    .dataVencimento(dataVencimento)
+                    .valorParcela(valorParcelaBase)
+                    .jurosParcela(jurosParcela)
+                    .build());
+            }
+
+            BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
+            if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
+                ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
+                ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
+            }
+
+            valorLiquido = valorTotal.subtract(totalJuros);
         }
-
-        BigDecimal diferencaArredondamento = valorTotal.subtract(valorTotalParcelas);
-        if (diferencaArredondamento.compareTo(BigDecimal.ZERO) != 0 && !parcelasCalculadas.isEmpty()) {
-            ParcelaDto ultimaParcela = parcelasCalculadas.get(parcelasCalculadas.size() - 1);
-            ultimaParcela.setValorParcela(ultimaParcela.getValorParcela().add(diferencaArredondamento));
-        }
-
-        BigDecimal valorLiquido = valorTotal.subtract(totalJuros);
 
         return CalculoResponseDto.builder()
             .totalJuros(totalJuros)

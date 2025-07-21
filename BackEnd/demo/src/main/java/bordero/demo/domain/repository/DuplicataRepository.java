@@ -9,8 +9,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DuplicataRepository extends JpaRepository<Duplicata, Long>, JpaSpecificationExecutor<Duplicata> {
@@ -31,4 +33,16 @@ public interface DuplicataRepository extends JpaRepository<Duplicata, Long>, Jpa
             @Param("sacado") String sacado,
             @Param("tipoOperacaoId") Long tipoOperacaoId,
             Pageable pageable);
+
+    @Query("SELECT SUM(d.valorJuros) FROM Duplicata d JOIN d.operacao o " +
+           "WHERE d.dataOperacao >= :dataInicio AND d.dataOperacao <= :dataFim " +
+           "AND (:clienteId IS NULL OR o.cliente.id = :clienteId) " +
+           "AND (:sacado IS NULL OR d.clienteSacado LIKE %:sacado%) " +
+           "AND (:tipoOperacaoId IS NULL OR o.tipoOperacao.id = :tipoOperacaoId)")
+    Optional<BigDecimal> sumValorJurosByPeriodAndFilters(
+            @Param("dataInicio") LocalDate dataInicio,
+            @Param("dataFim") LocalDate dataFim,
+            @Param("clienteId") Long clienteId,
+            @Param("sacado") String sacado,
+            @Param("tipoOperacaoId") Long tipoOperacaoId);
 }

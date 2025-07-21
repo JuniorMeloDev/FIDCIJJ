@@ -24,9 +24,10 @@ public class DashboardController {
     @GetMapping("/saldos")
     public ResponseEntity<List<SaldoContaDto>> getSaldos(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam(required = false) String contaBancaria
     ) {
-        List<SaldoContaDto> saldos = service.getSaldosPorContaAteData(dataInicio, dataFim);
+        List<SaldoContaDto> saldos = service.getSaldosPorContaAteData(dataInicio, dataFim, contaBancaria);
         return ResponseEntity.ok(saldos);
     }
     
@@ -36,9 +37,11 @@ public class DashboardController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
         @RequestParam(required = false) Long tipoOperacaoId,
         @RequestParam(required = false) Long clienteId, 
-        @RequestParam(required = false) String sacado  
+        @RequestParam(required = false) String sacado,
+        @RequestParam(required = false) String contaBancaria,
+        @RequestParam(required = false, defaultValue = "5") Integer diasVencimento
     ) {
-        DashboardMetricsDto metrics = service.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId, clienteId, sacado);
+        DashboardMetricsDto metrics = service.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId, clienteId, sacado, contaBancaria, diasVencimento);
         return ResponseEntity.ok(metrics);
     }
 }

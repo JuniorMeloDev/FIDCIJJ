@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ public class MovimentacaoCaixaService {
     private final MovimentacaoCaixaRepository repository;
 
     @Transactional(readOnly = true)
-    public List<MovimentacaoCaixaResponseDto> listarComFiltros(LocalDate dataInicio, LocalDate dataFim, String descricao, String conta, String categoria, String sort, String direction) {
+    public List<MovimentacaoCaixaResponseDto> listarComFiltros(LocalDate dataInicio, LocalDate dataFim, String descricao, String conta, String categoria, String sort, String direction, String tipoValor) {
         
         Specification<MovimentacaoCaixa> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -43,6 +44,13 @@ public class MovimentacaoCaixaService {
             }
             if (StringUtils.hasText(categoria) && !"Todos".equalsIgnoreCase(categoria)) {
                 predicates.add(criteriaBuilder.equal(root.get(MovimentacaoCaixa_.categoria), categoria));
+            }
+            if (StringUtils.hasText(tipoValor) && !"Todos".equalsIgnoreCase(tipoValor)) {
+                if ("credito".equalsIgnoreCase(tipoValor)) {
+                    predicates.add(criteriaBuilder.greaterThan(root.get(MovimentacaoCaixa_.valor), BigDecimal.ZERO));
+                } else if ("debito".equalsIgnoreCase(tipoValor)) {
+                    predicates.add(criteriaBuilder.lessThan(root.get(MovimentacaoCaixa_.valor), BigDecimal.ZERO));
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
@@ -74,9 +82,7 @@ public class MovimentacaoCaixaService {
         repository.deleteById(movimentacaoId);
     }
 
-    // --- MÉTODO CORRIGIDO ---
     private MovimentacaoCaixaResponseDto converterParaDto(MovimentacaoCaixa model) {
-        // Verifica se a operação associada não é nula antes de tentar aceder ao seu ID
         Long idOperacao = null;
         if (model.getOperacao() != null) {
             idOperacao = model.getOperacao().getId();

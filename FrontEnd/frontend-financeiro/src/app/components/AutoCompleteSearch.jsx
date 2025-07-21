@@ -45,7 +45,8 @@ export default function AutocompleteSearch({
     onSelect,
     fetchSuggestions,
     placeholder,
-    name
+    name,
+    id
 }) {
     const [suggestions, setSuggestions] = useState([]);
     const [isFocused, setIsFocused] = useState(false);
@@ -73,6 +74,7 @@ export default function AutocompleteSearch({
             <input
                 ref={inputRef}
                 type="text"
+                id={id}
                 name={name}
                 placeholder={placeholder}
                 value={value || ''}

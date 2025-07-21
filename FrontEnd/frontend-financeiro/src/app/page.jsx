@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { formatBRLNumber, formatDate } from "@/app/utils/formatters";
+import { formatBRLNumber, formatDate, formatBRLForAxis } from "@/app/utils/formatters";
 import DashboardFiltros from "@/app/components/DashboardFiltros";
 import RelatorioModal from "@/app/components/RelatorioModal";
 
@@ -20,6 +20,7 @@ function DashboardPage() {
   const [saldos, setSaldos] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [tiposOperacao, setTiposOperacao] = useState([]);
+  const [contasBancarias, setContasBancarias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
@@ -29,7 +30,9 @@ function DashboardPage() {
     clienteId: "",
     clienteNome: "",
     sacado: "",
+    contaBancaria: "",
   });
+  const [diasVencimento, setDiasVencimento] = useState(5);
   const [isRelatorioModalOpen, setIsRelatorioModalOpen] = useState(false);
 
   const fetchApiData = async (url) => {
@@ -49,11 +52,15 @@ function DashboardPage() {
     fetchApiData(`${API_URL}/cadastros/sacados/search?nome=${query}`);
 
   useEffect(() => {
-    const fetchTipos = async () => {
-      const data = await fetchApiData(`${API_URL}/cadastros/tipos-operacao`);
-      setTiposOperacao(data);
+    const fetchInitialData = async () => {
+        const [tiposData, contasData] = await Promise.all([
+            fetchApiData(`${API_URL}/cadastros/tipos-operacao`),
+            fetchApiData(`${API_URL}/cadastros/contas/master`)
+        ]);
+        setTiposOperacao(tiposData);
+        setContasBancarias(contasData);
     };
-    fetchTipos();
+    fetchInitialData();
   }, []);
 
   useEffect(() => {
@@ -62,19 +69,19 @@ function DashboardPage() {
         setLoading(true);
         setError(null);
 
-        const metricParams = new URLSearchParams();
-        if (filters.dataInicio)
-          metricParams.append("dataInicio", filters.dataInicio);
-        if (filters.dataFim) metricParams.append("dataFim", filters.dataFim);
-        if (filters.tipoOperacaoId)
-          metricParams.append("tipoOperacaoId", filters.tipoOperacaoId);
-        if (filters.clienteId)
-          metricParams.append("clienteId", filters.clienteId);
-        if (filters.sacado) metricParams.append("sacado", filters.sacado);
+        const params = new URLSearchParams();
+        if (filters.dataInicio) params.append("dataInicio", filters.dataInicio);
+        if (filters.dataFim) params.append("dataFim", filters.dataFim);
+        if (filters.tipoOperacaoId) params.append("tipoOperacaoId", filters.tipoOperacaoId);
+        if (filters.clienteId) params.append("clienteId", filters.clienteId);
+        if (filters.sacado) params.append("sacado", filters.sacado);
+        if (filters.contaBancaria) params.append("contaBancaria", filters.contaBancaria);
+        params.append("diasVencimento", diasVencimento);
+
 
         const [saldosRes, metricsRes] = await Promise.all([
-          fetch(`${API_URL}/dashboard/saldos`),
-          fetch(`${API_URL}/dashboard/metrics?${metricParams.toString()}`),
+          fetch(`${API_URL}/dashboard/saldos?${params.toString()}`),
+          fetch(`${API_URL}/dashboard/metrics?${params.toString()}`),
         ]);
 
         if (!saldosRes.ok || !metricsRes.ok)
@@ -89,7 +96,7 @@ function DashboardPage() {
       }
     };
     fetchData();
-  }, [filters]);
+  }, [filters, diasVencimento]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -125,14 +132,15 @@ function DashboardPage() {
       clienteId: "",
       clienteNome: "",
       sacado: "",
+      contaBancaria: "",
     });
   };
 
   const totalGeral = saldos.reduce((acc, conta) => acc + conta.saldo, 0);
-  const totalOperadoTitle =
+  const saldosTitle =
     filters.dataInicio || filters.dataFim
-      ? "Total Operado no Período"
-      : "Total Operado no Mês";
+      ? "Resultado do Período"
+      : "Saldos Atuais";
 
   return (
     <main className="bg-blue-50 min-h-full">
@@ -164,6 +172,7 @@ function DashboardPage() {
           onFilterChange={handleFilterChange}
           onAutocompleteSelect={handleAutocompleteSelect}
           tiposOperacao={tiposOperacao}
+          contasBancarias={contasBancarias}
           fetchClientes={fetchClientes}
           fetchSacados={fetchSacados}
           onClear={clearFilters}
@@ -178,7 +187,7 @@ function DashboardPage() {
           <div className="space-y-6">
             <section>
               <h2 className="text-xl font-semibold text-gray-700 mb-3">
-                Saldos Bancários
+                {saldosTitle}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {saldos.map((conta) => (
@@ -208,22 +217,59 @@ function DashboardPage() {
                 </div>
               </div>
             </section>
+            
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                 <div className="bg-white p-4 rounded-lg shadow-lg">
+                  <h3 className="text-sm font-semibold text-green-600">
+                    Juros Total
+                  </h3>
+                  <p className="text-2xl font-bold text-green-700 mt-1">
+                    {formatBRLNumber(metrics?.totalJuros || 0)}
+                  </p>
+                </div>
+                 <div className="bg-white p-4 rounded-lg shadow-lg">
+                  <h3 className="text-sm font-semibold text-red-600">
+                    Despesas Totais
+                  </h3>
+                  <p className="text-2xl font-bold text-red-700 mt-1">
+                    {formatBRLNumber(metrics?.totalDespesas || 0)}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-lg">
+                  <h3 className="text-sm font-semibold text-blue-600">
+                    Lucro Líquido
+                  </h3>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">
+                    {formatBRLNumber(metrics?.lucroLiquido || 0)}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-lg">
+                  <h3 className="text-sm font-semibold text-gray-600">
+                    Total Operado
+                  </h3>
+                  <p className="text-2xl font-bold text-gray-700 mt-1">
+                    {formatBRLNumber(metrics?.valorOperadoNoMes || 0)}
+                  </p>
+                </div>
+            </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="space-y-6 lg:col-span-1">
                 <div className="bg-white p-4 rounded-lg shadow-lg">
-                  <h3 className="text-sm font-semibold text-blue-500">
-                    {totalOperadoTitle}
-                  </h3>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">
-                    {formatBRLNumber(metrics?.valorOperadoNoMes || 0)}
-                  </p>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg shadow-lg">
-                  <h3 className="text-base font-semibold text-gray-800 mb-3">
-                    Vencimentos Próximos (30 dias)
-                  </h3>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-base font-semibold text-gray-800">
+                      Vencimentos Próximos
+                    </h3>
+                    <select
+                        value={diasVencimento}
+                        onChange={(e) => setDiasVencimento(Number(e.target.value))}
+                        className="border-gray-300 rounded-md shadow-sm p-1 text-xs focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value={5}>5 dias</option>
+                        <option value={15}>15 dias</option>
+                        <option value={30}>30 dias</option>
+                    </select>
+                  </div>
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                     {metrics?.vencimentosProximos?.length > 0 ? (
                       [...metrics.vencimentosProximos]
@@ -257,7 +303,7 @@ function DashboardPage() {
                         ))
                     ) : (
                       <p className="text-sm text-gray-500 mt-4">
-                        Nenhuma duplicata a vencer nos próximos 30 dias.
+                        Nenhuma duplicata a vencer nos próximos {diasVencimento} dias.
                       </p>
                     )}
                   </div>
@@ -273,40 +319,43 @@ function DashboardPage() {
                         : "Top 5 Sacados por Valor"}
                     </h3>
                     <div style={{ width: "100%", height: 250 }}>
-                      <ResponsiveContainer>
-                        <BarChart
-                          data={metrics?.[key] || []}
-                          layout="vertical"
-                          margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis
-                            type="number"
-                            tickFormatter={(value) => `R$${value / 1000}k`}
-                          />
-                          <YAxis
-                            dataKey="nome"
-                            type="category"
-                            width={100}
-                            interval={0}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <Tooltip
-                            formatter={(value) => formatBRLNumber(value)}
-                            cursor={{ fill: "#f3f4f6" }}
-                            contentStyle={{
-                              backgroundColor: "#fff",
-                              border: "1px solid #ccc",
-                            }}
-                          />
-                          <Bar
-                            dataKey="valorTotal"
-                            name="Valor Operado"
-                            fill="#3b82f6"
-                            barSize={25}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      {metrics?.[key]?.length > 0 ? (
+                        <ResponsiveContainer>
+                          <BarChart
+                            data={metrics?.[key] || []}
+                            layout="vertical"
+                            margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" domain={[0, 'dataMax']} tickFormatter={formatBRLForAxis} />
+                            <YAxis
+                              dataKey="nome"
+                              type="category"
+                              width={100}
+                              interval={0}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <Tooltip
+                              formatter={(value) => formatBRLNumber(value)}
+                              cursor={{ fill: "#f3f4f6" }}
+                              contentStyle={{
+                                backgroundColor: "#fff",
+                                border: "1px solid #ccc",
+                              }}
+                            />
+                            <Bar
+                              dataKey="valorTotal"
+                              name="Valor Operado"
+                              fill="#3b82f6"
+                              barSize={25}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500">
+                            Nenhum dado para exibir neste período.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -7,7 +7,7 @@ const API_URL = "http://localhost:8080/api";
 
 export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchClientes, fetchSacados }) {
     const initialState = {
-        dataInicio: "", dataFim: "", tipoOperacaoId: "", clienteId: "", clienteNome: "", sacado: "", conta: "", status: "Todos"
+        dataInicio: "", dataFim: "", tipoOperacaoId: "", clienteId: "", clienteNome: "", sacado: "", conta: "", status: "Todos", categoria: "Todos", tipoValor: "Todos"
     };
     const [reportType, setReportType] = useState('fluxoCaixa');
     const [filters, setFilters] = useState(initialState);
@@ -67,6 +67,8 @@ export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchCl
         if (filters.sacado) params.append('sacado', filters.sacado);
         if (filters.conta) params.append('conta', filters.conta);
         if (filters.status) params.append('status', filters.status);
+        if (filters.categoria) params.append('categoria', filters.categoria);
+        if (filters.tipoValor) params.append('tipoValor', filters.tipoValor);
 
         try {
           const response = await fetch(`${API_URL}/relatorios/${endpoint}?${params.toString()}`);
@@ -153,13 +155,35 @@ export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchCl
                         )}
 
                         {reportType === 'fluxoCaixa' && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Conta</label>
-                                <select name="conta" value={filters.conta} onChange={handleFilterChange} className="mt-1 w-full border-gray-300 rounded-md p-1.5 text-sm">
-                                    <option value="">Todas</option>
-                                    {contas.map(conta => <option key={conta} value={conta}>{conta}</option>)}
-                                </select>
-                            </div>
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Conta</label>
+                                    <select name="conta" value={filters.conta} onChange={handleFilterChange} className="mt-1 w-full border-gray-300 rounded-md p-1.5 text-sm">
+                                        <option value="">Todas</option>
+                                        {contas.map(conta => <option key={conta} value={conta}>{conta}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Categoria</label>
+                                    <select name="categoria" value={filters.categoria} onChange={handleFilterChange} className="mt-1 w-full border-gray-300 rounded-md p-1.5 text-sm">
+                                        <option value="Todos">Todas</option>
+                                        <option value="Recebimento">Recebimento</option>
+                                        <option value="Pagamento de Borderô">Pagamento de Borderô</option>
+                                        <option value="Receita Avulsa">Receita Avulsa</option>
+                                        <option value="Despesa Avulsa">Despesa Avulsa</option>
+                                        <option value="Transferencia Enviada">Transferência Enviada</option>
+                                        <option value="Transferencia Recebida">Transferência Recebida</option>
+                                    </select>
+                                </div>
+                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                                    <select name="tipoValor" value={filters.tipoValor} onChange={handleFilterChange} className="mt-1 w-full border-gray-300 rounded-md p-1.5 text-sm">
+                                        <option value="Todos">Todos</option>
+                                        <option value="credito">Crédito</option>
+                                        <option value="debito">Débito</option>
+                                    </select>
+                                </div>
+                            </>
                         )}
 
                         {reportType === 'duplicatas' && (

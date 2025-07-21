@@ -18,6 +18,16 @@ export const formatBRLNumber = (value) => {
     return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+export const formatBRLForAxis = (value) => {
+    if (value >= 1000000) {
+        return `R$ ${(value / 1000000).toFixed(1).replace('.', ',')}M`;
+    }
+    if (value >= 1000) {
+        return `R$ ${(value / 1000).toFixed(0)}k`;
+    }
+    return `R$ ${value}`;
+};
+
 export const formatTelefone = (value) => {
     if (!value) return '';
     let cleanValue = String(value).replace(/\D/g, '');
