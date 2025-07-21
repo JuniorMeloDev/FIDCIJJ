@@ -55,7 +55,6 @@ public class OperacaoService {
             sacadoRepository.findByNomeIgnoreCase(nfDto.getClienteSacado())
                     .orElseThrow(() -> new RuntimeException("Sacado '" + nfDto.getClienteSacado() + "' não encontrado."));
             
-            // A taxa de juros agora vem diretamente do Tipo de Operação geral da operação.
             CalculoResponseDto calculoResult = calcularJurosComTipoOperacao(operacaoDto.getDataOperacao(), nfDto, tipoOperacao);
             jurosTotalOperacao = jurosTotalOperacao.add(calculoResult.getTotalJuros());
 
@@ -109,7 +108,7 @@ public class OperacaoService {
         return operacaoSalva.getId();
     }
 
-     @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(request.getTipoOperacaoId())
                 .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + request.getTipoOperacaoId() + " não encontrado."));
@@ -234,8 +233,8 @@ public class OperacaoService {
             movimentacao.setDescricao("Recebimento " + tipoDocumento + " " + duplicata.getNfCte());
             ContaBancaria conta = contaBancariaRepository.findById(contaBancariaId)
             .orElseThrow(() -> new RuntimeException("Conta bancária não encontrada com ID: " + contaBancariaId));
-        // Formata a string com os dados da conta encontrada
-        movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
+        
+            movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
             movimentacao.setEmpresaAssociada(duplicata.getOperacao().getCliente().getNome());
 
             MovimentacaoCaixa movimentacaoSalva = movimentacaoCaixaRepository.save(movimentacao);
@@ -305,7 +304,7 @@ public class OperacaoService {
                 .collect(Collectors.toList());
     }
 
-    private DuplicataResponseDto converterParaDto(Duplicata duplicata) {
+    public DuplicataResponseDto converterParaDto(Duplicata duplicata) {
         Long operacaoId = (duplicata.getOperacao() != null) ? duplicata.getOperacao().getId() : null;
         String tipoOperacaoNome = (duplicata.getOperacao() != null && duplicata.getOperacao().getTipoOperacao() != null) 
                                 ? duplicata.getOperacao().getTipoOperacao().getNome() 
