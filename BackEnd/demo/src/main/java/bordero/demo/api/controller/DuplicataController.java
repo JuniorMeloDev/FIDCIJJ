@@ -27,9 +27,13 @@ public class DuplicataController {
             @RequestParam(required = false) String sacado,
             @RequestParam(required = false) String nfCte,
             @RequestParam(required = false) BigDecimal valor,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long tipoOperacaoId,
+            @RequestParam(required = false, defaultValue = "dataOperacao") String sort,
+            @RequestParam(required = false, defaultValue = "DESC") String direction
     ) {
-        List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas(dataOpInicio, dataOpFim, dataVencInicio, dataVencFim, sacado, nfCte, valor, status);
+        List<DuplicataResponseDto> lista = operacaoService.listarTodasAsDuplicatas(dataOpInicio, dataOpFim, dataVencInicio, dataVencFim, sacado, nfCte, valor, status, clienteId, tipoOperacaoId, sort, direction);
         return ResponseEntity.ok(lista);
     }
 

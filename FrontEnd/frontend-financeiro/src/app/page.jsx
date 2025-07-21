@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { formatBRLNumber, formatDate } from "@/app/utils/formatters";
 import DashboardFiltros from "@/app/components/DashboardFiltros";
+import RelatorioModal from "@/app/components/RelatorioModal";
 
 const API_URL = "http://localhost:8080/api";
 
@@ -29,6 +30,7 @@ function DashboardPage() {
     clienteNome: "",
     sacado: "",
   });
+  const [isRelatorioModalOpen, setIsRelatorioModalOpen] = useState(false);
 
   const fetchApiData = async (url) => {
     try {
@@ -134,12 +136,27 @@ function DashboardPage() {
 
   return (
     <main className="bg-blue-50 min-h-full">
+        <RelatorioModal
+            isOpen={isRelatorioModalOpen}
+            onClose={() => setIsRelatorioModalOpen(false)}
+            tiposOperacao={tiposOperacao}
+            fetchClientes={fetchClientes}
+            fetchSacados={fetchSacados}
+        />
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <header className="mb-6 border-b pb-3">
-          <h1 className="text-3xl font-bold text-blue-800">Dashboard</h1>
-          <p className="text-gray-600 mt-1">
-            Visão geral da sua operação financeira.
-          </p>
+        <header className="mb-6 border-b pb-3 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-800">Dashboard</h1>
+            <p className="text-gray-600 mt-1">
+              Visão geral da sua operação financeira.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsRelatorioModalOpen(true)}
+            className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-indigo-700"
+          >
+            Imprimir Relatórios
+          </button>
         </header>
 
         <DashboardFiltros

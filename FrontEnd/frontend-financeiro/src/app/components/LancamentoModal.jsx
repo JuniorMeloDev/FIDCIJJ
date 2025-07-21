@@ -133,7 +133,7 @@ export default function LancamentoModal({ isOpen, onClose, onSave, contasMaster,
                     <div className="flex justify-end gap-3 pt-4 border-t">
                         <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button>
                         <button type="submit" disabled={isSaving} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300">
-                            {isSaving ? 'A guardar...' : 'Guardar Lançamento'}
+                            {isSaving ? 'Salvando...' : 'Salvar Lançamento'}
                         </button>
                     </div>
                 </form>

@@ -8,8 +8,10 @@ import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
 import ConfirmEmailModal from '@/app/components/EmailModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas'; 
+import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
 const ITEMS_PER_PAGE = 7;
+const API_URL = "http://localhost:8080/api";
 
 export default function ConsultasPage() {
     const [duplicatas, setDuplicatas] = useState([]);
@@ -17,12 +19,16 @@ export default function ConsultasPage() {
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [contasMaster, setContasMaster] = useState([]);
+    const [tiposOperacao, setTiposOperacao] = useState([]);
     
     const [filters, setFilters] = useState({
         dataOpInicio: '', dataOpFim: '',
         dataVencInicio: '', dataVencFim: '',
-        sacado: '', nfCte: '', status: 'Todos'
+        sacado: '', nfCte: '', status: 'Todos',
+        clienteId: '', clienteNome: '', tipoOperacaoId: ''
     });
+
+    const [sortConfig, setSortConfig] = useState({ key: 'dataOperacao', direction: 'DESC' });
 
     const [pdfLoading, setPdfLoading] = useState(null);
     const [estornandoId, setEstornandoId] = useState(null);
@@ -36,18 +42,20 @@ export default function ConsultasPage() {
     const menuRef = useRef(null);
     const [estornoInfo, setEstornoInfo] = useState(null);
 
-    // Lógica para buscar os dados com base nos filtros
-    const fetchDuplicatas = async (currentFilters) => {
+    const fetchDuplicatas = async (currentFilters, currentSortConfig) => {
         setLoading(true);
         const params = new URLSearchParams();
         Object.entries(currentFilters).forEach(([key, value]) => {
-            if (value && value !== 'Todos') {
+            if (value && value !== 'Todos' && key !== 'clienteNome') {
                 params.append(key, value);
             }
         });
+
+        params.append('sort', currentSortConfig.key);
+        params.append('direction', currentSortConfig.direction);
         
         try {
-            const response = await fetch(`http://localhost:8080/api/duplicatas?${params.toString()}`);
+            const response = await fetch(`${API_URL}/duplicatas?${params.toString()}`);
             if (!response.ok) throw new Error('Falha ao buscar os dados da API.');
             const data = await response.json();
             setDuplicatas(data);
@@ -58,54 +66,100 @@ export default function ConsultasPage() {
         }
     };
     
-    // --- CORREÇÃO APLICADA AQUI ---
-    // Este useEffect agora busca os dados iniciais assim que a página carrega
     useEffect(() => {
-        // Função para buscar as contas, que agora vive dentro deste useEffect
-        const fetchContasMaster = async () => {
+        const fetchInitialData = async () => {
             try {
-                const res = await fetch("http://localhost:8080/api/cadastros/contas/master"); // Corrigido endpoint
-                if (!res.ok) throw new Error("Falha ao buscar contas master.");
-                const contas = await res.json();
+                const [contasRes, tiposRes] = await Promise.all([
+                    fetch(`${API_URL}/cadastros/contas/master`),
+                    fetch(`${API_URL}/cadastros/tipos-operacao`)
+                ]);
+
+                if (!contasRes.ok) throw new Error("Falha ao buscar contas master.");
+                if (!tiposRes.ok) throw new Error("Falha ao buscar tipos de operação.");
+                
+                const contas = await contasRes.json();
+                const tipos = await tiposRes.json();
+
                 setContasMaster(contas);
+                setTiposOperacao(tipos);
             } catch (error) {
                 console.error(error);
-                // Opcional: notificar o usuário sobre o erro
-                showNotification('Não foi possível carregar as contas bancárias.', 'error');
+                showNotification(error.message, 'error');
             }
         };
 
-        // Chama as duas funções de busca
-        fetchDuplicatas(filters);
-        fetchContasMaster();
-    }, []); // O array vazio [] garante que isso só rode uma vez
+        fetchInitialData();
+    }, []);
 
-    const handleFilterChange = (e) => {
-        setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            fetchDuplicatas(filters, sortConfig);
+        }, 500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [filters, sortConfig]);
+
+
+    const fetchClientes = async (query) => {
+        try {
+            const res = await fetch(`${API_URL}/cadastros/clientes/search?nome=${query}`);
+            if (!res.ok) return [];
+            return await res.json();
+        } catch (error) {
+            console.error("Erro ao buscar clientes:", error);
+            return [];
+        }
     };
 
-    const applyFilters = () => {
+    const handleFilterChange = (e) => {
         setCurrentPage(1);
-        fetchDuplicatas(filters);
+        const { name, value } = e.target;
+        if (name === "clienteNome" && value === "") {
+            setFilters(prev => ({ ...prev, clienteId: "", clienteNome: "" }));
+        } else {
+            setFilters(prev => ({ ...prev, [name]: value }));
+        }
+    };
+    
+    const handleAutocompleteSelect = (name, item) => {
+        setCurrentPage(1);
+        if (name === 'cliente') {
+            setFilters(prev => ({ ...prev, clienteId: item?.id || '', clienteNome: item?.nome || '' }));
+        }
     };
 
     const clearFilters = () => {
-        const cleared = { dataOpInicio: '', dataOpFim: '', dataVencInicio: '', dataVencFim: '', sacado: '', nfCte: '', status: 'Todos' };
+        const cleared = { dataOpInicio: '', dataOpFim: '', dataVencInicio: '', dataVencFim: '', sacado: '', nfCte: '', status: 'Todos', clienteId: '', clienteNome: '', tipoOperacaoId: '' };
         setFilters(cleared);
         setCurrentPage(1);
-        fetchDuplicatas(cleared); // Busca os dados com os filtros limpos
     };
 
-    // ... (resto das suas funções handle, como handleEstornar, etc., continuam aqui sem alteração)
+    const handleSort = (key) => {
+        let direction = 'ASC';
+        if (sortConfig.key === key && sortConfig.direction === 'ASC') {
+            direction = 'DESC';
+        }
+        setCurrentPage(1);
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
+        if (sortConfig.direction === 'ASC') return <FaSortUp />;
+        return <FaSortDown />;
+    };
+
     useEffect(() => {const handleClickOutside = (event) => {if (menuRef.current && !menuRef.current.contains(event.target)) {setOpenMenuId(null);}}; document.addEventListener("mousedown", handleClickOutside); return () => {document.removeEventListener("mousedown", handleClickOutside);};}, []);
     const showNotification = (message, type) => { setNotification({ message, type }); setTimeout(() => setNotification({ message: '', type: '' }), 5000); };
     const handleAbrirModalLiquidacao = (duplicata) => { setDuplicataParaLiquidar(duplicata); setIsLiquidarModalOpen(true); setOpenMenuId(null); };
     const handleConfirmarLiquidacao = async (duplicataId, dataLiquidacao, jurosMora, contaBancariaId) => {
-        let url = `http://localhost:8080/api/duplicatas/${duplicataId}/liquidar`;
+        let url = `${API_URL}/duplicatas/${duplicataId}/liquidar`;
         const params = new URLSearchParams();
         if (dataLiquidacao) params.append('dataLiquidacao', dataLiquidacao);
         if (jurosMora && jurosMora > 0) params.append('jurosMora', jurosMora);
-        if(contaBancariaId) params.append('contaBancariaId', contaBancariaId); // Adiciona o ID da conta
+        if(contaBancariaId) params.append('contaBancariaId', contaBancariaId);
     
         const queryString = params.toString();
         if (queryString) url += `?${queryString}`;
@@ -113,9 +167,8 @@ export default function ConsultasPage() {
         try {
             const response = await fetch(url, { method: 'POST' });
             if (!response.ok) throw new Error('Falha ao dar baixa na duplicata.');
-            const duplicataAtualizada = await response.json();
-            setDuplicatas(duplicatas.map(d => d.id === duplicataAtualizada.id ? duplicataAtualizada : d));
             showNotification('Duplicata liquidada com sucesso!', 'success');
+            fetchDuplicatas(filters, sortConfig);
         } catch (err) {
             showNotification(err.message, 'error');
         } finally {
@@ -123,17 +176,17 @@ export default function ConsultasPage() {
         }
     };
     const handleEstornar = (duplicataId) => { setOpenMenuId(null); setEstornoInfo({ id: duplicataId }); };
-    const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`http://localhost:8080/api/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST' }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } setDuplicatas(duplicatas.map(d => d.id === estornoInfo.id ? { ...d, statusRecebimento: 'Pendente', dataLiquidacao: null, contaLiquidacao: null } : d)); showNotification('Liquidação estornada com sucesso!', 'success'); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
+    const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`${API_URL}/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST' }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } showNotification('Liquidação estornada com sucesso!', 'success'); fetchDuplicatas(filters, sortConfig); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
     const handleAbrirEmailModal = (operacaoId, tipoOperacao) => { setOperacaoParaEmail({ id: operacaoId, tipoOperacao: tipoOperacao }); setIsEmailModalOpen(true); setOpenMenuId(null); };
-    const handleSendEmail = async (destinatarios) => { if (!operacaoParaEmail) return; setIsSendingEmail(true); try { const response = await fetch(`http://localhost:8080/api/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinatarios }), }); if (!response.ok) throw new Error("Falha ao enviar o e-mail."); showNotification("E-mail(s) enviado(s) com sucesso!", "success"); } catch (err) { showNotification(err.message, "error"); } finally { setIsSendingEmail(false); setIsEmailModalOpen(false); } };
-    const handleGeneratePdf = async (operacaoId) => { setOpenMenuId(null); if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; } setPdfLoading(operacaoId); try { const response = await fetch(`http://localhost:8080/api/operacoes/${operacaoId}/pdf`); if (!response.ok) throw new Error('Não foi possível gerar o PDF.'); const contentDisposition = response.headers.get('content-disposition'); let filename = `bordero-${operacaoId}.pdf`; if (contentDisposition) { const filenameMatch = contentDisposition.match(/filename="([^"]+)"/); if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); } } const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); } catch (err) { alert(err.message); } finally { setPdfLoading(null); } };
+    const handleSendEmail = async (destinatarios) => { if (!operacaoParaEmail) return; setIsSendingEmail(true); try { const response = await fetch(`${API_URL}/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinatarios }), }); if (!response.ok) throw new Error("Falha ao enviar o e-mail."); showNotification("E-mail(s) enviado(s) com sucesso!", "success"); } catch (err) { showNotification(err.message, "error"); } finally { setIsSendingEmail(false); setIsEmailModalOpen(false); } };
+    const handleGeneratePdf = async (operacaoId) => { setOpenMenuId(null); if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; } setPdfLoading(operacaoId); try { const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`); if (!response.ok) throw new Error('Não foi possível gerar o PDF.'); const contentDisposition = response.headers.get('content-disposition'); let filename = `bordero-${operacaoId}.pdf`; if (contentDisposition) { const filenameMatch = contentDisposition.match(/filename="([^"]+)"/); if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); } } const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); } catch (err) { alert(err.message); } finally { setPdfLoading(null); } };
 
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
     const currentItems = duplicatas.slice(indexOfFirstItem, indexOfLastItem);
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-    if (loading) return <div className="text-center p-10">A carregar...</div>;
+    if (loading && duplicatas.length === 0) return <div className="text-center p-10">A carregar...</div>;
     if (error) return <div className="text-center p-10 text-red-500">Erro: {error}</div>;
 
     
@@ -160,20 +213,34 @@ export default function ConsultasPage() {
                     <FiltroLateralConsultas
                         filters={filters}
                         onFilterChange={handleFilterChange}
-                        onApply={applyFilters}
                         onClear={clearFilters}
+                        tiposOperacao={tiposOperacao}
+                        fetchClientes={fetchClientes}
+                        onAutocompleteSelect={handleAutocompleteSelect}
                     />
                     <div className="flex-grow bg-white p-4 rounded-lg shadow-md flex flex-col">
                         <div className="overflow-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data Op.</th>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">NF/CT-e</th>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sacado</th>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Valor Bruto</th>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Juros</th>
-                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data Venc.</th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                            <button onClick={() => handleSort('dataOperacao')} className="flex items-center gap-1">Data Op. {getSortIcon('dataOperacao')}</button>
+                                        </th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                            <button onClick={() => handleSort('nfCte')} className="flex items-center gap-1">NF/CT-e {getSortIcon('nfCte')}</button>
+                                        </th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                            <button onClick={() => handleSort('clienteSacado')} className="flex items-center gap-1">Sacado {getSortIcon('clienteSacado')}</button>
+                                        </th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                            <button onClick={() => handleSort('valorBruto')} className="flex items-center gap-1 float-right">Valor Bruto {getSortIcon('valorBruto')}</button>
+                                        </th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                            <button onClick={() => handleSort('valorJuros')} className="flex items-center gap-1 float-right">Juros {getSortIcon('valorJuros')}</button>
+                                        </th>
+                                        <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                             <button onClick={() => handleSort('dataVencimento')} className="flex items-center gap-1">Data Venc. {getSortIcon('dataVencimento')}</button>
+                                        </th>
                                         <th className="sticky top-0 bg-gray-50 z-10 px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
                                     </tr>
                                 </thead>

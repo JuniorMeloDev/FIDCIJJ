@@ -3,6 +3,7 @@ package bordero.demo.service;
 import bordero.demo.api.dto.*;
 import bordero.demo.domain.entity.*;
 import bordero.demo.domain.repository.*;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -281,7 +282,8 @@ public class OperacaoService {
     public List<DuplicataResponseDto> listarTodasAsDuplicatas(
             LocalDate dataOpInicio, LocalDate dataOpFim,
             LocalDate dataVencInicio, LocalDate dataVencFim,
-            String sacado, String nfCte, BigDecimal valor, String status) {
+            String sacado, String nfCte, BigDecimal valor, String status,
+            Long clienteId, Long tipoOperacaoId, String sort, String direction) {
 
         Specification<Duplicata> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -294,12 +296,24 @@ public class OperacaoService {
             if (nfCte != null && !nfCte.isBlank()) predicates.add(criteriaBuilder.like(root.get(Duplicata_.nfCte), "%" + nfCte + "%"));
             if (valor != null) predicates.add(criteriaBuilder.equal(root.get(Duplicata_.valorBruto), valor));
             if (status != null && !status.isBlank() && !status.equalsIgnoreCase("Todos")) predicates.add(criteriaBuilder.equal(root.get(Duplicata_.statusRecebimento), status));
+            
+            if (clienteId != null || tipoOperacaoId != null) {
+                Join<Duplicata, Operacao> operacaoJoin = root.join(Duplicata_.operacao);
+                if (clienteId != null) {
+                    predicates.add(criteriaBuilder.equal(operacaoJoin.get(Operacao_.cliente).get("id"), clienteId));
+                }
+                if (tipoOperacaoId != null) {
+                    predicates.add(criteriaBuilder.equal(operacaoJoin.get(Operacao_.tipoOperacao).get("id"), tipoOperacaoId));
+                }
+            }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
 
-        Sort sort = Sort.by(Sort.Direction.DESC, "dataOperacao");
-        return duplicataRepository.findAll(spec, sort).stream()
+        Sort.Direction sortDirection = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sortOrder = Sort.by(sortDirection, sort);
+
+        return duplicataRepository.findAll(spec, sortOrder).stream()
                 .map(this::converterParaDto)
                 .collect(Collectors.toList());
     }

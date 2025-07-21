@@ -122,7 +122,7 @@ export default function OperacaoDetalhes({
                     disabled={isSaving}
                     className="bg-green-600 text-white font-semibold py-2 px-6 rounded-md shadow-sm hover:bg-green-700 disabled:bg-green-300"
                 >
-                    {isSaving ? 'A guardar...' : 'Salvar Operação'}
+                    {isSaving ? 'Salvando.' : 'Salvar Operação'}
                 </button>
             </div>
         </section>

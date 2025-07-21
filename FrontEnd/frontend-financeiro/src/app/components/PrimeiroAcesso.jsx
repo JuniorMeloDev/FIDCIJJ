@@ -24,7 +24,7 @@ export default function PrimeiroAcesso() {
                     onClick={handleCadastroClick}
                     className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300"
                 >
-                    Iniciar Cadastr
+                    Iniciar Cadastro
                 </button>
             </div>
         </div>
