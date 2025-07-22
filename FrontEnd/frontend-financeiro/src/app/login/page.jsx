@@ -1,85 +1,132 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { FaChartLine, FaEye, FaEyeSlash } from 'react-icons/fa'
 
 export default function LoginPage() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
-    const router = useRouter();
+  const [username, setUsername]       = useState('')
+  const [password, setPassword]       = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError]             = useState('')
+  const router                        = useRouter()
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
 
-        try {
-            const response = await fetch('http://localhost:8080/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-            });
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username, password }),
+      })
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Credenciais inválidas.');
-            }
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || 'Credenciais inválidas.')
+      }
 
-            const data = await response.json();
-            localStorage.setItem('authToken', data.token);
-            router.push('/');
-            router.refresh();
+      const { token } = await res.json()
+      localStorage.setItem('authToken', token)
 
-        } catch (err) {
-            setError(err.message);
-        }
-    };
+      // redireciona para /resumo
+      router.push('/resumo')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
 
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="p-8 bg-white rounded-lg shadow-xl w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">FIDC IJJ - Login</h1>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">Usuário ou E-mail</label>
-                        <input
-                            id="username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                        />
-                    </div>
-                    <div className="relative">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">Senha</label>
-                        <input
-                            id="password"
-                            type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-gray-500"
-                        >
-                            {showPassword ? <FaEye /> : <FaEyeSlash />}
-                        </button>
-                    </div>
-                    {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-                    <button
-                        type="submit"
-                        className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700"
-                    >
-                        Entrar
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
+  return (
+    <main className="min-h-screen bg-gray-900 flex items-center justify-center p-6">
+      <motion.div
+        className="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl p-8"
+        initial={{ opacity: 0, y: -40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
+        <motion.div
+          className="flex items-center justify-center mb-6 space-x-2"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
+          <FaChartLine className="w-8 h-8 text-orange-400" />
+          <span className="text-2xl font-bold text-white">IJJ FIDC</span>
+        </motion.div>
+
+        <h2 className="text-center text-2xl font-semibold text-orange-400 mb-8">
+          Bem-vindo de volta
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <motion.div
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <label className="block text-gray-300 mb-1">Usuário ou E-mail</label>
+            <input
+              type="text"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              required
+              placeholder="Digite seu usuário ou email"
+              className="w-full px-4 py-2 rounded-md bg-gray-700 text-white placeholder-gray-400 
+                         focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+            />
+          </motion.div>
+
+          <motion.div
+            className="relative"
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+          >
+            <label className="block text-gray-300 mb-1">Senha</label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="********"
+              className="w-full px-4 py-2 rounded-md bg-gray-700 text-white placeholder-gray-400 
+                         focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute inset-y-11 right-3 flex items-center justify-center text-gray-400 focus:outline-none"
+            >
+              {showPassword ? <FaEye /> : <FaEyeSlash />}
+            </button>
+          </motion.div>
+
+          {error && (
+            <motion.p
+              className="text-center text-red-500 text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9 }}
+            >
+              {error}
+            </motion.p>
+          )}
+
+          <motion.button
+            type="submit"
+            className="w-full py-2 border-2 border-orange-500 text-orange-500 rounded-full font-semibold
+                       shadow-lg transition-transform transform hover:scale-105 hover:bg-orange-500 hover:text-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1, duration: 0.5 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Entrar
+          </motion.button>
+        </form>
+      </motion.div>
+    </main>
+  )
 }

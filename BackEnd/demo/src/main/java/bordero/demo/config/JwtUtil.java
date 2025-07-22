@@ -5,6 +5,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -19,9 +20,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class JwtUtil {
     
-    private final UserRepository userRepository; // Injetar o repositório
+    private final UserRepository userRepository;
 
-    private String SECRET_KEY = "ZWFhY2E2ZWY4YjdmYTE0NmM5MWMxZWI5MGE4YjEzMGMxYjYyZDYzNjA2YjE5MDkyN2FmZjM2YmI5Y2ZkNGI4NAo=";
+    @Value("${jwt.secret.key}") // Injeta a chave do application.properties
+    private String SECRET_KEY;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -47,8 +49,7 @@ public class JwtUtil {
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
         
-        // Busca o nome de utilizador real para adicionar ao token
-        userRepository.findByEmail(userDetails.getUsername()).ifPresent(user -> {
+        userRepository.findByUsername(userDetails.getUsername()).ifPresent(user -> {
             claims.put("username", user.getUsername());
         });
 
@@ -56,17 +57,17 @@ public class JwtUtil {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList()));
         
-        return createToken(claims, userDetails.getUsername()); // O "subject" do token será o email
+        return createToken(claims, userDetails.getUsername());
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 horas de validade
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
                 .signWith(SignatureAlgorithm.HS256, SECRET_KEY).compact();
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token); // Isto agora extrai o e-mail
+        final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 }

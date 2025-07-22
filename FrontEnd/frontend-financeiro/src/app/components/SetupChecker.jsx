@@ -12,13 +12,13 @@ export default function SetupChecker({ children }) {
 
     useEffect(() => {
         const checkStatus = async () => {
-            // Não fazemos verificações nas páginas públicas de login e registro
-            if (pathname === '/login' || pathname === '/register') {
-                setStatus({ loading: false, needsSetup: false, isAuthenticated: false });
-                return;
+            const publicPaths = ['/', '/login', '/register'];
+            if (publicPaths.includes(pathname)) {
+                 setStatus({ loading: false, needsSetup: false, isAuthenticated: false });
+                 return;
             }
-
-            setStatus(prev => ({ ...prev, loading: true }));
+            
+            setStatus(prev => ({...prev, loading: true}));
             try {
                 const token = localStorage.getItem('authToken');
                 const isAuthenticated = !!token;
@@ -31,7 +31,6 @@ export default function SetupChecker({ children }) {
                 
                 setStatus({ loading: false, needsSetup: data.needsSetup, isAuthenticated });
 
-                // Lógica de redirecionamento
                 if (data.needsSetup && !pathname.startsWith('/cadastros')) {
                     router.push('/cadastros/clientes');
                 } else if (!isAuthenticated) {
@@ -41,14 +40,21 @@ export default function SetupChecker({ children }) {
             } catch (err) {
                 console.error(err);
                 setError(err.message);
-                setStatus(prev => ({ ...prev, loading: false }));
+                setStatus(prev => ({...prev, loading: false}));
             }
         };
 
         checkStatus();
     }, [pathname, router]);
 
-    // Exibe tela de carregamento ou erro enquanto verifica
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const isAuthenticated = !!token;
+
+    if (isAuthenticated && pathname === '/login') {
+        router.push('/resumo'); // Redireciona para /resumo após login
+        return null;
+    }
+    
     if (status.loading) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-100">A carregar...</div>;
     }
@@ -56,20 +62,22 @@ export default function SetupChecker({ children }) {
     if (error) {
         return <div className="flex items-center justify-center min-h-screen text-red-600 bg-gray-100">{error}</div>;
     }
-
-    // Permite o acesso a páginas públicas ou se o usuário estiver autenticado e o setup concluído
-    if (pathname === '/login' || pathname === '/register' || (status.isAuthenticated && !status.needsSetup)) {
+    
+    const publicPaths = ['/', '/login', '/register'];
+    if (publicPaths.includes(pathname)) {
         return <>{children}</>;
     }
-    
-    // Mostra a tela de primeiro acesso se necessário
+
     if (status.needsSetup) {
         if (pathname.startsWith('/cadastros')) {
             return <>{children}</>;
         }
         return <PrimeiroAcesso />;
     }
+    
+    if(isAuthenticated){
+        return <>{children}</>;
+    }
 
-    // Retorna nulo para evitar piscar de tela durante o redirecionamento
     return null;
 }
