@@ -35,9 +35,14 @@ function DashboardPage() {
   const [diasVencimento, setDiasVencimento] = useState(5);
   const [isRelatorioModalOpen, setIsRelatorioModalOpen] = useState(false);
 
+  const getAuthHeader = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
   const fetchApiData = async (url) => {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getAuthHeader() });
       if (!res.ok) return [];
       return await res.json();
     } catch (err) {
@@ -78,10 +83,11 @@ function DashboardPage() {
         if (filters.contaBancaria) params.append("contaBancaria", filters.contaBancaria);
         params.append("diasVencimento", diasVencimento);
 
+        const headers = getAuthHeader();
 
         const [saldosRes, metricsRes] = await Promise.all([
-          fetch(`${API_URL}/dashboard/saldos?${params.toString()}`),
-          fetch(`${API_URL}/dashboard/metrics?${params.toString()}`),
+          fetch(`${API_URL}/dashboard/saldos?${params.toString()}`, { headers }),
+          fetch(`${API_URL}/dashboard/metrics?${params.toString()}`, { headers }),
         ]);
 
         if (!saldosRes.ok || !metricsRes.ok)

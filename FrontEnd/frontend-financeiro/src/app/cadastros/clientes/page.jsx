@@ -5,7 +5,7 @@ import Link from 'next/link';
 import EditClienteModal from '@/app/components/EditClienteModal';
 import Notification from '@/app/components/Notification';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
-import Pagination from '@/app/components/Pagination'; // Importa o componente de paginação
+import Pagination from '@/app/components/Pagination';
 import FiltroLateralClientes from '@/app/components/FiltroLateralClientes';
 import { formatCnpjCpf } from '@/app/utils/formatters'; 
 
@@ -21,9 +21,13 @@ export default function ClientesPage() {
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
     
-    // Estado para a paginação
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ nome: '', cnpj: '' });
+
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -33,8 +37,10 @@ export default function ClientesPage() {
     const fetchClientes = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/clientes`);
-            if (!response.ok) throw new Error('Falha ao carregar clientes.');
+            const response = await fetch(`${API_URL}/clientes`, {
+                headers: getAuthHeader()
+            });
+            if (!response.ok) throw new Error('Falha ao carregar clientes. Verifique se está logado.');
             const data = await response.json();
             setClientes(data);
         } catch (err) {
@@ -76,7 +82,10 @@ export default function ClientesPage() {
         try {
             const response = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader()
+                },
                 body: JSON.stringify(data),
             });
             if (!response.ok) {
@@ -99,7 +108,10 @@ export default function ClientesPage() {
     const handleConfirmarExclusao = async () => {
         if (!clienteParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/clientes/${clienteParaExcluir.id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/clientes/${clienteParaExcluir.id}`, { 
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
             if (!response.ok) throw new Error('Falha ao excluir o cliente.');
             showNotification('Cliente excluído com sucesso!', 'success');
             await fetchClientes();
@@ -111,7 +123,6 @@ export default function ClientesPage() {
         }
     };
 
-    // Lógica da Paginação
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
     const currentItems = filteredClientes.slice(indexOfFirstItem, indexOfLastItem);
@@ -125,7 +136,7 @@ export default function ClientesPage() {
             
             <header className="mb-4">
                 <h1 className="text-2xl font-bold text-gray-800">Cadastros</h1>
-                <p className="text-sm text-gray-600">Gestão de Clientes e Sacados</p>
+                <p className="text-sm text-gray-600">Gestão de Clientes, Sacados, Operações e Usuários</p>
             </header>
             <div className="mb-4 border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -133,6 +144,9 @@ export default function ClientesPage() {
                     <Link href="/cadastros/sacados" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
                     <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         Tipos de Operação
+                    </Link>
+                    <Link href="/cadastros/usuarios" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        Usuários
                     </Link>
                 </nav>
             </div>

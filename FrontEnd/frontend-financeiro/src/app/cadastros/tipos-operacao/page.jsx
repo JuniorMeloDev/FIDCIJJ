@@ -6,7 +6,7 @@ import Pagination from '@/app/components/Pagination';
 import Notification from '@/app/components/Notification';
 import FiltroLateralTiposOperacao from '@/app/components/FiltroLateralTiposOperacao';
 import EditTipoOperacaoModal from '@/app/components/EditTipoOperacaoModal';
-import ConfirmacaoModal from '@/app/components/ConfirmacaoModal'; // Importa o modal de confirmação
+import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import { formatBRLNumber } from '@/app/utils/formatters';
 
 const API_URL = 'http://localhost:8080/api/cadastros';
@@ -22,8 +22,12 @@ export default function TiposOperacaoPage() {
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [filters, setFilters] = useState({ nome: '' });
     
-    // Novo estado para o modal de confirmação
     const [operacaoParaExcluir, setOperacaoParaExcluir] = useState(null);
+
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -33,7 +37,7 @@ export default function TiposOperacaoPage() {
     const fetchTiposOperacao = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/tipos-operacao`);
+            const response = await fetch(`${API_URL}/tipos-operacao`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Falha ao carregar os tipos de operação.');
             setTiposOperacao(await response.json());
         } catch (err) {
@@ -81,7 +85,7 @@ export default function TiposOperacaoPage() {
         try {
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(data),
             });
             if (!response.ok) throw new Error(`Falha ao ${isUpdating ? 'atualizar' : 'criar'} tipo de operação.`);
@@ -94,25 +98,26 @@ export default function TiposOperacaoPage() {
         }
     };
 
-    // Abre o modal de confirmação
     const handleDeleteRequest = (id) => {
         const operacao = tiposOperacao.find(op => op.id === id);
         setOperacaoParaExcluir(operacao);
     };
     
-    // Executa a exclusão após confirmação
     const handleConfirmarExclusao = async () => {
         if (!operacaoParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/tipos-operacao/${operacaoParaExcluir.id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/tipos-operacao/${operacaoParaExcluir.id}`, { 
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
             if (!response.ok) throw new Error('Falha ao excluir. Este tipo de operação pode estar em uso.');
             showNotification('Tipo de operação excluído com sucesso!', 'success');
             await fetchTiposOperacao();
         } catch (err) {
             showNotification(err.message, 'error');
         } finally {
-            setOperacaoParaExcluir(null); // Fecha o modal de confirmação
-            setIsModalOpen(false);      // Fecha o modal de edição
+            setOperacaoParaExcluir(null);
+            setIsModalOpen(false);
         }
     };
 
@@ -128,7 +133,7 @@ export default function TiposOperacaoPage() {
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
                 onSave={handleSave} 
-                onDelete={handleDeleteRequest} // Modificado para chamar a confirmação
+                onDelete={handleDeleteRequest}
                 tipoOperacao={editingOperacao} 
             />
             <ConfirmacaoModal
@@ -153,6 +158,9 @@ export default function TiposOperacaoPage() {
                     </Link>
                     <Link href="/cadastros/tipos-operacao" className="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         Tipos de Operação
+                    </Link>
+                    <Link href="/cadastros/usuarios" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        Usuários
                     </Link>
                 </nav>
             </div>

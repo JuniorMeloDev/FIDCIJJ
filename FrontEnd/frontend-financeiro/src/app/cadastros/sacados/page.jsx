@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import EditSacadoModal from '@/app/components/EditSacadoModal';
 import Notification from '@/app/components/Notification';
-import ConfirmacaoModal from '@/app/components/ConfirmacaoModal'; // Importa o modal
+import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralSacados from '@/app/components/FiltroLateralSacados';
 import { formatCnpjCpf, formatTelefone } from '@/app/utils/formatters';
@@ -23,8 +23,12 @@ export default function SacadosPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ nome: '', cnpj: '' });
     
-    // Novo estado para controlar o modal de confirmação
     const [sacadoParaExcluir, setSacadoParaExcluir] = useState(null);
+
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -34,9 +38,10 @@ export default function SacadosPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
+            const headers = getAuthHeader();
             const [sacadosRes, tiposRes] = await Promise.all([
-                fetch(`${API_URL}/sacados`),
-                fetch(`${API_URL}/tipos-operacao`)
+                fetch(`${API_URL}/sacados`, { headers }),
+                fetch(`${API_URL}/tipos-operacao`, { headers })
             ]);
             if (!sacadosRes.ok) throw new Error('Falha ao carregar sacados.');
             if (!tiposRes.ok) throw new Error('Falha ao carregar tipos de operação.');
@@ -81,7 +86,11 @@ export default function SacadosPage() {
         const method = isUpdating ? 'PUT' : 'POST';
         try {
             const payload = { ...data };
-            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const response = await fetch(url, { 
+                method, 
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, 
+                body: JSON.stringify(payload) 
+            });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Falha ao salvar o sacado.');
@@ -94,25 +103,26 @@ export default function SacadosPage() {
         }
     };
     
-    // 1. Esta função é chamada pelo botão "Excluir" e abre o modal de confirmação
     const handleDeleteRequest = (id) => {
         const sacado = sacados.find(s => s.id === id);
         setSacadoParaExcluir(sacado);
     };
 
-    // 2. Esta função é chamada pelo "Sim" do modal e executa a exclusão
     const handleConfirmarExclusao = async () => {
         if (!sacadoParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/sacados/${sacadoParaExcluir.id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/sacados/${sacadoParaExcluir.id}`, { 
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
             if (!response.ok) throw new Error('Falha ao excluir o sacado.');
             showNotification('Sacado excluído com sucesso!', 'success');
             await fetchData();
         } catch (err) {
             showNotification(err.message, 'error');
         } finally {
-            setSacadoParaExcluir(null); // Fecha o modal de confirmação
-            setIsModalOpen(false);      // Fecha o modal de edição
+            setSacadoParaExcluir(null);
+            setIsModalOpen(false);
         }
     };
 
@@ -130,7 +140,7 @@ export default function SacadosPage() {
                 onClose={() => setIsModalOpen(false)}
                 sacado={editingSacado}
                 onSave={handleSaveSacado}
-                onDelete={handleDeleteRequest} // Atualizado para chamar a confirmação
+                onDelete={handleDeleteRequest}
                 showNotification={showNotification}
                 tiposOperacao={tiposOperacao}
             />
@@ -152,6 +162,7 @@ export default function SacadosPage() {
                     <Link href="/cadastros/clientes" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Clientes (Cedentes)</Link>
                     <Link href="/cadastros/sacados" className="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
                     <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Tipos de Operação</Link>
+                    <Link href="/cadastros/usuarios" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Usuários</Link>
                 </nav>
             </div>
             <div className="flex-grow flex flex-col lg:flex-row gap-6">

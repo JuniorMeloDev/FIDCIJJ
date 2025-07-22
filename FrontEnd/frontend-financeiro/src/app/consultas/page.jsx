@@ -42,6 +42,11 @@ export default function ConsultasPage() {
     const menuRef = useRef(null);
     const [estornoInfo, setEstornoInfo] = useState(null);
 
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
+
     const fetchDuplicatas = async (currentFilters, currentSortConfig) => {
         setLoading(true);
         const params = new URLSearchParams();
@@ -55,7 +60,9 @@ export default function ConsultasPage() {
         params.append('direction', currentSortConfig.direction);
         
         try {
-            const response = await fetch(`${API_URL}/duplicatas?${params.toString()}`);
+            const response = await fetch(`${API_URL}/duplicatas?${params.toString()}`, {
+                headers: getAuthHeader()
+            });
             if (!response.ok) throw new Error('Falha ao buscar os dados da API.');
             const data = await response.json();
             setDuplicatas(data);
@@ -69,9 +76,10 @@ export default function ConsultasPage() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
+                const headers = getAuthHeader();
                 const [contasRes, tiposRes] = await Promise.all([
-                    fetch(`${API_URL}/cadastros/contas/master`),
-                    fetch(`${API_URL}/cadastros/tipos-operacao`)
+                    fetch(`${API_URL}/cadastros/contas/master`, { headers }),
+                    fetch(`${API_URL}/cadastros/tipos-operacao`, { headers })
                 ]);
 
                 if (!contasRes.ok) throw new Error("Falha ao buscar contas master.");
@@ -104,7 +112,9 @@ export default function ConsultasPage() {
 
     const fetchClientes = async (query) => {
         try {
-            const res = await fetch(`${API_URL}/cadastros/clientes/search?nome=${query}`);
+            const res = await fetch(`${API_URL}/cadastros/clientes/search?nome=${query}`, {
+                headers: getAuthHeader()
+            });
             if (!res.ok) return [];
             return await res.json();
         } catch (error) {
@@ -165,7 +175,10 @@ export default function ConsultasPage() {
         if (queryString) url += `?${queryString}`;
     
         try {
-            const response = await fetch(url, { method: 'POST' });
+            const response = await fetch(url, { 
+                method: 'POST',
+                headers: getAuthHeader()
+            });
             if (!response.ok) throw new Error('Falha ao dar baixa na duplicata.');
             showNotification('Duplicata liquidada com sucesso!', 'success');
             fetchDuplicatas(filters, sortConfig);
@@ -176,10 +189,10 @@ export default function ConsultasPage() {
         }
     };
     const handleEstornar = (duplicataId) => { setOpenMenuId(null); setEstornoInfo({ id: duplicataId }); };
-    const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`${API_URL}/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST' }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } showNotification('Liquidação estornada com sucesso!', 'success'); fetchDuplicatas(filters, sortConfig); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
+    const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`${API_URL}/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST', headers: getAuthHeader() }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } showNotification('Liquidação estornada com sucesso!', 'success'); fetchDuplicatas(filters, sortConfig); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
     const handleAbrirEmailModal = (operacaoId, tipoOperacao) => { setOperacaoParaEmail({ id: operacaoId, tipoOperacao: tipoOperacao }); setIsEmailModalOpen(true); setOpenMenuId(null); };
-    const handleSendEmail = async (destinatarios) => { if (!operacaoParaEmail) return; setIsSendingEmail(true); try { const response = await fetch(`${API_URL}/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinatarios }), }); if (!response.ok) throw new Error("Falha ao enviar o e-mail."); showNotification("E-mail(s) enviado(s) com sucesso!", "success"); } catch (err) { showNotification(err.message, "error"); } finally { setIsSendingEmail(false); setIsEmailModalOpen(false); } };
-    const handleGeneratePdf = async (operacaoId) => { setOpenMenuId(null); if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; } setPdfLoading(operacaoId); try { const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`); if (!response.ok) throw new Error('Não foi possível gerar o PDF.'); const contentDisposition = response.headers.get('content-disposition'); let filename = `bordero-${operacaoId}.pdf`; if (contentDisposition) { const filenameMatch = contentDisposition.match(/filename="([^"]+)"/); if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); } } const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); } catch (err) { alert(err.message); } finally { setPdfLoading(null); } };
+    const handleSendEmail = async (destinatarios) => { if (!operacaoParaEmail) return; setIsSendingEmail(true); try { const response = await fetch(`${API_URL}/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify({ destinatarios }), }); if (!response.ok) throw new Error("Falha ao enviar o e-mail."); showNotification("E-mail(s) enviado(s) com sucesso!", "success"); } catch (err) { showNotification(err.message, "error"); } finally { setIsSendingEmail(false); setIsEmailModalOpen(false); } };
+    const handleGeneratePdf = async (operacaoId) => { setOpenMenuId(null); if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; } setPdfLoading(operacaoId); try { const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`, { headers: getAuthHeader() }); if (!response.ok) throw new Error('Não foi possível gerar o PDF.'); const contentDisposition = response.headers.get('content-disposition'); let filename = `bordero-${operacaoId}.pdf`; if (contentDisposition) { const filenameMatch = contentDisposition.match(/filename="([^"]+)"/); if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); } } const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); } catch (err) { alert(err.message); } finally { setPdfLoading(null); } };
 
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;

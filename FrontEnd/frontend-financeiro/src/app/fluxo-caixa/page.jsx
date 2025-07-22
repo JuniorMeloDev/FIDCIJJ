@@ -10,10 +10,7 @@ import FiltroLateral from '@/app/components/FiltroLateral';
 import Pagination from '@/app/components/Pagination';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
-const API_URL_MOVIMENTACOES = 'http://localhost:8080/api/movimentacoes-caixa';
-const API_URL_DASHBOARD = 'http://localhost:8080/api/dashboard';
-const API_URL_CADASTROS = 'http://localhost:8080/api/cadastros';
-
+const API_URL = 'http://localhost:8080/api';
 const ITEMS_PER_PAGE = 6;
 
 export default function FluxoDeCaixaPage() {
@@ -41,6 +38,16 @@ export default function FluxoDeCaixaPage() {
     const [itemParaEmail, setItemParaEmail] = useState(null);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
+
+    const showNotification = (message, type) => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification({ message: '', type: '' }), 5000);
+    };
+
     const fetchMovimentacoes = async (currentFilters, currentSortConfig) => {
         setLoading(true);
         const params = new URLSearchParams();
@@ -56,7 +63,7 @@ export default function FluxoDeCaixaPage() {
         params.append('direction', currentSortConfig.direction);
 
         try {
-            const response = await fetch(`${API_URL_MOVIMENTACOES}?${params.toString()}`);
+            const response = await fetch(`${API_URL}/movimentacoes-caixa?${params.toString()}`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Falha ao carregar movimentações.');
             const data = await response.json();
             setMovimentacoes(data);
@@ -72,10 +79,10 @@ export default function FluxoDeCaixaPage() {
         if (currentFilters.dataInicio) params.append('dataInicio', currentFilters.dataInicio);
         if (currentFilters.dataFim) params.append('dataFim', currentFilters.dataFim);
 
-        const url = `${API_URL_DASHBOARD}/saldos?${params.toString()}`;
+        const url = `${API_URL}/dashboard/saldos?${params.toString()}`;
         
         try {
-            const saldosResponse = await fetch(url);
+            const saldosResponse = await fetch(url, { headers: getAuthHeader() });
             if (!saldosResponse.ok) throw new Error('Falha ao carregar saldos.');
             const saldosData = await saldosResponse.json();
             setSaldos(saldosData);
@@ -88,9 +95,10 @@ export default function FluxoDeCaixaPage() {
     useEffect(() => {
         const fetchStaticData = async () => {
              try {
+                const headers = getAuthHeader();
                 const [masterContasResponse, clientesResponse] = await Promise.all([
-                    fetch(`${API_URL_CADASTROS}/contas/master`),
-                    fetch(`${API_URL_CADASTROS}/clientes`)
+                    fetch(`${API_URL}/cadastros/contas/master`, { headers }),
+                    fetch(`${API_URL}/cadastros/clientes`, { headers })
                 ]);
 
                 if (!masterContasResponse.ok || !clientesResponse.ok) {
@@ -159,9 +167,9 @@ export default function FluxoDeCaixaPage() {
 
     const handleSaveLancamento = async (payload) => {
         try {
-            const response = await fetch('http://localhost:8080/api/lancamentos', {
+            const response = await fetch(`${API_URL}/lancamentos`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {
@@ -185,7 +193,10 @@ export default function FluxoDeCaixaPage() {
     const handleConfirmDelete = async () => {
         if(!itemParaExcluir) return;
         try {
-            await fetch(`${API_URL_MOVIMENTACOES}/${itemParaExcluir}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/movimentacoes-caixa/${itemParaExcluir}`, { 
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
             showNotification('Lançamento excluído com sucesso!', 'success');
             fetchMovimentacoes(filters, sortConfig);
             fetchSaldos(filters);
@@ -199,7 +210,7 @@ export default function FluxoDeCaixaPage() {
     const handleGeneratePdf = async (operacaoId) => {
         setOpenMenuId(null);
         try {
-            const response = await fetch(`http://localhost:8080/api/operacoes/${operacaoId}/pdf`);
+            const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Não foi possível gerar o PDF.');
             const contentDisposition = response.headers.get('content-disposition');
             let filename = `bordero-${operacaoId}.pdf`;
@@ -228,9 +239,9 @@ export default function FluxoDeCaixaPage() {
         if (!itemParaEmail) return;
         setIsSendingEmail(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/operacoes/${itemParaEmail.id}/enviar-email`, {
+            const response = await fetch(`${API_URL}/operacoes/${itemParaEmail.id}/enviar-email`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify({ destinatarios }),
             });
             if (!response.ok) throw new Error("Falha ao enviar o e-mail.");
@@ -241,11 +252,6 @@ export default function FluxoDeCaixaPage() {
             setIsSendingEmail(false);
             setIsEmailModalOpen(false);
         }
-    };
-    
-    const showNotification = (message, type) => {
-        setNotification({ message, type });
-        setTimeout(() => setNotification({ message: '', type: '' }), 5000);
     };
 
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;

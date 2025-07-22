@@ -34,6 +34,10 @@ export default function OperacaoBorderoPage() {
     const [xmlDataPendente, setXmlDataPendente] = useState(null);
     const [condicoesSacado, setCondicoesSacado] = useState([]);
 
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
 
     const showNotification = (message, type) => {
         setNotification({ message, type });
@@ -47,7 +51,7 @@ export default function OperacaoBorderoPage() {
 
     const fetchTiposOperacao = async () => {
         try {
-            const res = await fetch(`${API_URL}/cadastros/tipos-operacao`);
+            const res = await fetch(`${API_URL}/cadastros/tipos-operacao`, { headers: getAuthHeader() });
             const data = await res.json();
             setTiposOperacao(data);
         } catch (err) {
@@ -57,7 +61,7 @@ export default function OperacaoBorderoPage() {
 
     const fetchContasMaster = async () => {
         try {
-            const res = await fetch(`${API_URL}/cadastros/contas/master`);
+            const res = await fetch(`${API_URL}/cadastros/contas/master`, { headers: getAuthHeader() });
             const data = await res.json();
             setContasBancarias(data);
             if (data.length > 0) setContaBancariaId(data[0].id);
@@ -68,7 +72,7 @@ export default function OperacaoBorderoPage() {
 
     const fetchClientes = async (query) => {
         try {
-            const res = await fetch(`${API_URL}/cadastros/clientes/search?nome=${query}`);
+            const res = await fetch(`${API_URL}/cadastros/clientes/search?nome=${query}`, { headers: getAuthHeader() });
             if (!res.ok) return [];
             return await res.json();
         } catch (error) {
@@ -79,7 +83,7 @@ export default function OperacaoBorderoPage() {
 
     const fetchSacados = async (query) => {
         try {
-            const res = await fetch(`${API_URL}/cadastros/sacados/search?nome=${query}`);
+            const res = await fetch(`${API_URL}/cadastros/sacados/search?nome=${query}`, { headers: getAuthHeader() });
             if (!res.ok) return [];
             return await res.json();
         } catch (error) {
@@ -97,7 +101,11 @@ export default function OperacaoBorderoPage() {
         formData.append('file', file);
 
         try {
-            const response = await fetch(`${API_URL}/upload/nfe-xml`, { method: 'POST', body: formData });
+            const response = await fetch(`${API_URL}/upload/nfe-xml`, { 
+                method: 'POST', 
+                headers: { ...getAuthHeader() },
+                body: formData 
+            });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Falha ao ler o ficheiro XML.');
@@ -149,7 +157,11 @@ export default function OperacaoBorderoPage() {
 
     const handleSaveNovoCliente = async (id, data) => {
         try {
-            const response = await fetch(`${API_URL}/cadastros/clientes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const response = await fetch(`${API_URL}/cadastros/clientes`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, 
+                body: JSON.stringify(data) 
+            });
             if (!response.ok) throw new Error('Falha ao criar novo cliente.');
             showNotification('Cliente criado com sucesso!', 'success');
             setClienteParaCriar(null);
@@ -166,7 +178,11 @@ export default function OperacaoBorderoPage() {
     
     const handleSaveNovoSacado = async (id, data) => {
         try {
-            const response = await fetch(`${API_URL}/cadastros/sacados`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const response = await fetch(`${API_URL}/cadastros/sacados`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, 
+                body: JSON.stringify(data) 
+            });
             if (!response.ok) throw new Error('Falha ao criar novo sacado.');
             showNotification('Sacado criado com sucesso!', 'success');
             setSacadoParaCriar(null);
@@ -230,7 +246,7 @@ export default function OperacaoBorderoPage() {
         try {
             const response = await fetch(`${API_URL}/operacoes/calcular-juros`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(body),
             });
             if (!response.ok) {
@@ -281,7 +297,7 @@ export default function OperacaoBorderoPage() {
         try {
             const response = await fetch(`${API_URL}/operacoes/salvar`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {

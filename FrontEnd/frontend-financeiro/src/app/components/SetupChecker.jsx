@@ -1,55 +1,75 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import PrimeiroAcesso from './PrimeiroAcesso';
 
 export default function SetupChecker({ children }) {
-    const [needsSetup, setNeedsSetup] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [status, setStatus] = useState({ loading: true, needsSetup: false, isAuthenticated: false });
     const [error, setError] = useState(null);
     const pathname = usePathname();
+    const router = useRouter();
 
     useEffect(() => {
-        const checkSetup = async () => {
-            setLoading(true);
+        const checkStatus = async () => {
+            // Não fazemos verificações nas páginas públicas de login e registro
+            if (pathname === '/login' || pathname === '/register') {
+                setStatus({ loading: false, needsSetup: false, isAuthenticated: false });
+                return;
+            }
+
+            setStatus(prev => ({ ...prev, loading: true }));
             try {
+                const token = localStorage.getItem('authToken');
+                const isAuthenticated = !!token;
+
                 const response = await fetch('http://localhost:8080/api/setup/status');
                 if (!response.ok) {
-                    throw new Error('Não foi possível verificar o status da aplicação. Verifique se o back-end está no ar.');
+                    throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está em execução.');
                 }
                 const data = await response.json();
-                setNeedsSetup(data.needsSetup);
-            } catch (error) {
-                console.error(error);
-                setError(error.message);
-            } finally {
-                setLoading(false);
+                
+                setStatus({ loading: false, needsSetup: data.needsSetup, isAuthenticated });
+
+                // Lógica de redirecionamento
+                if (data.needsSetup && !pathname.startsWith('/cadastros')) {
+                    router.push('/cadastros/clientes');
+                } else if (!isAuthenticated) {
+                    router.push('/login');
+                }
+
+            } catch (err) {
+                console.error(err);
+                setError(err.message);
+                setStatus(prev => ({ ...prev, loading: false }));
             }
         };
 
-        checkSetup();
-    }, [pathname]);
+        checkStatus();
+    }, [pathname, router]);
 
-    if (loading) {
-        return <div className="flex items-center justify-center min-h-screen">Verificando configuração...</div>;
+    // Exibe tela de carregamento ou erro enquanto verifica
+    if (status.loading) {
+        return <div className="flex items-center justify-center min-h-screen bg-gray-100">A carregar...</div>;
     }
     
     if (error) {
-        return <div className="flex items-center justify-center min-h-screen text-red-500">{error}</div>;
+        return <div className="flex items-center justify-center min-h-screen text-red-600 bg-gray-100">{error}</div>;
     }
 
-    if (needsSetup) {
-        // Se a configuração for necessária, mas o usuário estiver em qualquer página de cadastro,
-        // permita o acesso.
+    // Permite o acesso a páginas públicas ou se o usuário estiver autenticado e o setup concluído
+    if (pathname === '/login' || pathname === '/register' || (status.isAuthenticated && !status.needsSetup)) {
+        return <>{children}</>;
+    }
+    
+    // Mostra a tela de primeiro acesso se necessário
+    if (status.needsSetup) {
         if (pathname.startsWith('/cadastros')) {
             return <>{children}</>;
         }
-        
-        // Para todas as outras páginas, force a tela de boas-vindas.
         return <PrimeiroAcesso />;
     }
 
-    // Se a configuração já foi feita, renderiza a aplicação normalmente.
-    return <>{children}</>;
+    // Retorna nulo para evitar piscar de tela durante o redirecionamento
+    return null;
 }
