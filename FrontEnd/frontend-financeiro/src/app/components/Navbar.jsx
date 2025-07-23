@@ -1,87 +1,157 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { jwtDecode } from 'jwt-decode';
+import { motion } from 'framer-motion'
+import { FaChartLine } from 'react-icons/fa'
+import { FaBars, FaTimes } from 'react-icons/fa'
 
 export default function Navbar() {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [currentUser, setCurrentUser] = useState(null);
-    const router = useRouter();
-    const pathname = usePathname();
-    const profileRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
 
-    useEffect(() => {
-        const token = localStorage.getItem('authToken');
-        if (token) {
-            try {
-                const decoded = jwtDecode(token);
-                setCurrentUser({ username: decoded.sub });
-            } catch (e) {
-                console.error("Token inválido:", e);
-                handleLogout();
-            }
-        } else {
-            setCurrentUser(null);
-        }
-    }, [pathname]);
+  const router = useRouter()
+  const pathname = usePathname()
+  const profileRef = useRef(null)
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (profileRef.current && !profileRef.current.contains(event.target)) {
-                setIsProfileOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
-
-    const handleLogout = () => {
-        localStorage.removeItem('authToken');
-        setCurrentUser(null);
-        router.push('/login');
-    };
-
-    if (!currentUser) {
-        return null;
+  // Decode token and set user
+  useEffect(() => {
+    const token = localStorage.getItem('authToken')
+    if (token) {
+      try {
+        const { sub: username } = jwtDecode(token)
+        setCurrentUser({ username })
+      } catch {
+        localStorage.removeItem('authToken')
+        router.push('/login')
+      }
     }
+  }, [pathname, router])
 
-    return (
-        <nav className="bg-blue-100 shadow-md">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16">
-                    <div className="flex-shrink-0 flex items-center">
-                        <Link href="/resumo" className="text-2xl font-bold text-gray-800">FIDC IJJ</Link>
-                    </div>
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setIsProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
 
-                    <div className="hidden md:flex items-center space-x-8">
-                        <Link href="/resumo" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Resumo</Link>
-                        <Link href="/operacao-bordero" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Criar Borderô</Link>
-                        <Link href="/consultas" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Consultas</Link>
-                        <Link href="/fluxo-caixa" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Fluxo de Caixa</Link>
-                        <Link href="/cadastros/clientes" className="text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium">Cadastros</Link>
-                    </div>
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    router.push('/login')
+  }
 
-                    <div className="flex items-center">
-                        <div className="relative" ref={profileRef}>
-                            <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 p-2 rounded-md hover:bg-blue-200">
-                                <span className="font-semibold text-gray-700">{currentUser.username}</span>
-                                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            {isProfileOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 py-1">
-                                    <Link href="/profile" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Perfil</Link>
-                                    <button onClick={handleLogout} className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Sair</button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-    );
+  if (!currentUser) return null
+
+  const links = [
+    { label: 'Resumo', href: '/resumo' },
+    { label: 'Criar Borderô', href: '/operacao-bordero' },
+    { label: 'Consultas', href: '/consultas' },
+    { label: 'Fluxo de Caixa', href: '/fluxo-caixa' },
+    { label: 'Cadastros', href: '/cadastros/clientes' },
+  ]
+
+  return (
+    <motion.nav
+      className="bg-gray-900 border-b border-gray-800 shadow-lg fixed w-full z-30"
+      initial={{ y: -40, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link href="/resumo" className="flex items-center space-x-2">
+            <FaChartLine className="w-6 h-6 text-orange-400" />
+            <span className="text-xl font-bold text-white">IJJ FIDC</span>
+          </Link>
+
+          {/* Hamburger - mobile */}
+          <button
+            className="md:hidden text-gray-400 hover:text-white"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <FaTimes /> : <FaBars />}
+          </button>
+
+          {/* Menu links */}
+          <div
+            className={`${
+              isMenuOpen ? 'block' : 'hidden'
+            } md:flex md:items-center md:space-x-8`}
+          >
+            {links.map(({ label, href }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`
+                  block px-3 py-2 rounded-md text-sm font-medium
+                  ${
+                    pathname === href
+                      ? 'text-white border-b-2 border-orange-400'
+                      : 'text-gray-300 hover:text-orange-400'
+                  }
+                `}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Profile */}
+          <div className="relative ml-4 flex-shrink-0" ref={profileRef}>
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition"
+            >
+              <span className="font-medium text-gray-200">
+                {currentUser.username}
+              </span>
+              <svg
+                className="w-4 h-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            {isProfileOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                className="origin-top-right absolute right-0 mt-2 w-44 bg-gray-800 rounded-md shadow-xl py-1"
+              >
+                <Link
+                  href="/profile"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-700"
+                >
+                  Perfil
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left block px-4 py-2 text-sm text-red-500 hover:bg-gray-700"
+                >
+                  Sair
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.nav>
+  )
 }
