@@ -5,10 +5,12 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamSource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,10 +24,8 @@ public class EmailService {
     public void sendBorderoEmail(List<String> to, Operacao operacao) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            // O segundo argumento 'true' ativa o modo multipart, necessário para HTML e anexos
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            // --- LÓGICA DO NOME DO FICHEIRO E DO ASSUNTO DO E-MAIL ---
             String tipoDocumento = "NF";
             if (operacao.getCliente() != null && "Transportes".equalsIgnoreCase(operacao.getCliente().getRamoDeAtividade())) {
                 tipoDocumento = "Cte";
@@ -38,12 +38,12 @@ public class EmailService {
             
             String subject = "Borderô " + tipoDocumento + " " + numeros;
             String filename = subject + ".pdf";
-            // --- FIM DA LÓGICA ---
 
             helper.setTo(to.toArray(new String[0]));
-            helper.setSubject(subject); // Define o assunto do e-mail
+            helper.setSubject(subject);
 
-            // --- CORPO DO E-MAIL EM HTML COM ASSINATURA ---
+            // --- CORPO DO E-MAIL EM HTML ATUALIZADO ---
+            // A tag <img> agora usa 'cid:logoImage' que funcionará como uma referência para a imagem anexada
             String emailBody = "<html>"
                 + "<body>"
                 + "<p>Prezados,</p>"
@@ -56,17 +56,30 @@ public class EmailService {
                 + "<strong>FIDC IJJ</strong><br/>"
                 + "(81) 9 7339-0292"
                 + "</p>"
-                + "<img src= 'https://1drv.ms/i/s!AkqLGeak4n5juuV0IwV4TtaEXOWGOQ?embed=1' width='140'>"
+                + "<img src='cid:logoImage' width='140'>" // Referência para a imagem inline
                 + "</body>"
                 + "</html>";
             
-            // O segundo argumento 'true' para setText indica que o conteúdo é HTML
             helper.setText(emailBody, true);
-            // --- FIM DO CORPO DO E-MAIL ---
 
+            // Anexa o PDF do borderô
             byte[] pdfBytes = pdfService.generateBorderoPdf(operacao);
             helper.addAttachment(filename, new ByteArrayResource(pdfBytes));
 
+            // --- LÓGICA PARA INCORPORAR A LOGO NO E-MAIL ---
+            try (InputStream imageStream = getClass().getClassLoader().getResourceAsStream("images/Logo.png")) {
+                if (imageStream == null) {
+                    throw new RuntimeException("Arquivo de logo não encontrado em 'resources/images/Logo.png'");
+                }
+                byte[] imageBytes = imageStream.readAllBytes();
+                InputStreamSource imageSource = new ByteArrayResource(imageBytes);
+                // Adiciona a imagem "inline" com um Content-ID (cid)
+                helper.addInline("logoImage", imageSource, "image/png");
+            } catch (Exception e) {
+                System.err.println("Não foi possível carregar a imagem da logo para o e-mail: " + e.getMessage());
+                // O e-mail ainda será enviado, mas sem a logo.
+            }
+            
             mailSender.send(message);
 
         } catch (MessagingException e) {

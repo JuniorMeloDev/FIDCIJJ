@@ -2,17 +2,20 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import EditClienteModal from '@/app/components/EditClienteModal';
 import Notification from '@/app/components/Notification';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralClientes from '@/app/components/FiltroLateralClientes';
 import { formatCnpjCpf } from '@/app/utils/formatters'; 
+import useAuth from '@/app/hooks/useAuth'; // Importe o hook
 
 const API_URL = 'http://localhost:8080/api/cadastros';
-const ITEMS_PER_PAGE = 4; 
+const ITEMS_PER_PAGE = 10; 
 
 export default function ClientesPage() {
+    const { isAdmin } = useAuth(); // Use o hook para verificar se é admin
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -129,25 +132,31 @@ export default function ClientesPage() {
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
     return (
-        <main className="p-4 sm:p-6 flex flex-col h-full">
+        <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <EditClienteModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} cliente={editingCliente} onSave={handleSaveCliente} onDelete={handleDeleteRequest} showNotification={showNotification} />
             <ConfirmacaoModal isOpen={!!clienteParaExcluir} onClose={() => setClienteParaExcluir(null)} onConfirm={handleConfirmarExclusao} title="Confirmar Exclusão" message={`Deseja excluir o cliente "${clienteParaExcluir?.nome}"?`} />
             
-            <header className="mb-4">
-                <h1 className="text-2xl font-bold text-gray-800">Cadastros</h1>
-                <p className="text-sm text-gray-600">Gestão de Clientes, Sacados, Operações e Usuários</p>
-            </header>
-            <div className="mb-4 border-b border-gray-200">
+            <motion.header 
+                className="mb-4 border-b-2 border-orange-500 pb-4"
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+            >
+                <h1 className="text-3xl font-bold">Cadastros</h1>
+                <p className="text-sm text-gray-300">Gestão de Clientes, Sacados, Operações e Usuários</p>
+            </motion.header>
+            <div className="mb-4 border-b border-gray-700">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <Link href="/cadastros/clientes" className="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Clientes (Cedentes)</Link>
-                    <Link href="/cadastros/sacados" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
-                    <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    <Link href="/cadastros/clientes" className="border-orange-500 text-orange-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Clientes (Cedentes)</Link>
+                    <Link href="/cadastros/sacados" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
+                    <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         Tipos de Operação
                     </Link>
-                    <Link href="/cadastros/usuarios" className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        Usuários
-                    </Link>
+                    {isAdmin && (
+                        <Link href="/cadastros/usuarios" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                            Usuários
+                        </Link>
+                    )}
                 </nav>
             </div>
 
@@ -156,30 +165,29 @@ export default function ClientesPage() {
                     filters={filters}
                     onFilterChange={handleFilterChange}
                     onClear={clearFilters}
-                    onApply={() => {}} 
                 />
-                <div className="flex-grow bg-white p-4 rounded-lg shadow-md flex flex-col">
+                <div className="flex-grow bg-gray-800 p-4 rounded-lg shadow-md flex flex-col">
                     <div className="flex justify-end mb-4">
-                        <button onClick={handleOpenAddModal} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-indigo-700">Novo Cliente</button>
+                        <button onClick={handleOpenAddModal} className="bg-orange-500 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-orange-600 transition">Novo Cliente</button>
                     </div>
                     <div className="overflow-auto">
-                        {loading ? <p className="text-center py-10">A carregar...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                        {loading ? <p className="text-center py-10 text-gray-400">A carregar...</p> : error ? <p className="text-red-400 text-center py-10">{error}</p> : (
+                            <table className="min-w-full divide-y divide-gray-700">
+                                <thead className="bg-gray-700">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNPJ</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Município</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Nome</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">CNPJ</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Município</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-gray-800 divide-y divide-gray-700">
                                     {currentItems.map((cliente) => (
-                                        <tr key={cliente.id} onClick={() => handleOpenEditModal(cliente)} className="hover:bg-gray-100 cursor-pointer">
-                                            <td className="px-6 py-4 text-sm text-gray-500">{cliente.id}</td>
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{cliente.nome}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">{formatCnpjCpf(cliente.cnpj)}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">{cliente.municipio ? `${cliente.municipio} - ${cliente.uf}` : ''}</td>
+                                        <tr key={cliente.id} onClick={() => handleOpenEditModal(cliente)} className="hover:bg-gray-700 cursor-pointer">
+                                            <td className="px-6 py-4 text-sm text-gray-400">{cliente.id}</td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-100">{cliente.nome}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-400">{formatCnpjCpf(cliente.cnpj)}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-400">{cliente.municipio ? `${cliente.municipio} - ${cliente.uf}` : ''}</td>
                                         </tr>
                                     ))}
                                 </tbody>

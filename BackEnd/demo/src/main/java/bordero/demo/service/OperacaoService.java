@@ -72,6 +72,7 @@ public class OperacaoService {
             }
         }
 
+        // O backend agora confia totalmente nos descontos enviados pelo frontend
         BigDecimal totalDescontosAdicionais = operacaoDto.getDescontos() != null ? operacaoDto.getDescontos().stream()
                 .map(DescontoDto::getValor).reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
         
@@ -99,6 +100,7 @@ public class OperacaoService {
 
         operacaoSalva.setDuplicatas(duplicatasParaSalvar);
 
+        // Salva a lista de descontos que foi enviada pelo frontend
         if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
             List<Desconto> descontosList = operacaoDto.getDescontos().stream().map(dto -> {
                 Desconto desconto = new Desconto();

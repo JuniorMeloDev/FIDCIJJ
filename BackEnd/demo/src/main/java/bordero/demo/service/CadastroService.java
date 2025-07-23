@@ -67,6 +67,19 @@ public class CadastroService {
         cliente.setIe(dto.getIe());
         cliente.setCep(dto.getCep());
 
+        if (cliente.getEmails() == null) {
+            cliente.setEmails(new ArrayList<>());
+        }
+        cliente.getEmails().clear();
+        if (dto.getEmails() != null) {
+            // Remove e-mails vazios ou nulos antes de adicionar
+            cliente.getEmails().addAll(
+                dto.getEmails().stream()
+                   .filter(email -> email != null && !email.trim().isEmpty())
+                   .collect(Collectors.toList())
+            );
+        }
+
         if (cliente.getContasBancarias() == null) {
             cliente.setContasBancarias(new ArrayList<>());
         }
@@ -263,6 +276,7 @@ public class CadastroService {
                 .sacados(cliente.getSacados() != null ?
                         cliente.getSacados().stream().map(this::toSacadoDto).collect(Collectors.toSet()) :
                         new HashSet<>())
+                .emails(cliente.getEmails())
                 .build();
     }
 

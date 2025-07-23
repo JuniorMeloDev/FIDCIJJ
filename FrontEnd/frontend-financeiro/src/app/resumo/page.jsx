@@ -3,20 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip as BarTooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts'
 import TopFiveApex from '../components/TopFiveApex'
 import {
   formatBRLNumber,
   formatDate,
-  formatBRLForAxis,
 } from '@/app/utils/formatters'
 import DashboardFiltros from '@/app/components/DashboardFiltros'
 import RelatorioModal from '@/app/components/RelatorioModal'
@@ -26,7 +16,7 @@ const API_URL = 'http://localhost:8080/api'
 
 export default function ResumoPage() {
   const [saldos, setSaldos] = useState([])
-  const [metrics, setMetrics] = useState(null)
+  const [metrics, setMetrics] = useState(null); // Inicia como nulo para o carregamento inicial
   const [tiposOperacao, setTiposOperacao] = useState([])
   const [contasBancarias, setContasBancarias] = useState([])
   const [filters, setFilters] = useState({
@@ -38,11 +28,13 @@ export default function ResumoPage() {
     sacado: '',
     contaBancaria: '',
   })
+  
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [diasVencimento, setDiasVencimento] = useState(5)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isRelatorioModalOpen, setIsRelatorioModalOpen] = useState(false)
-  const router = useRouter()
+  const [topFiveChartType, setTopFiveChartType] = useState('cedentes');
 
   const getAuthHeader = () => {
     const token = localStorage.getItem('authToken')
@@ -59,7 +51,6 @@ export default function ResumoPage() {
     }
   }
 
-  // Carrega tipos de operação e contas bancárias
   useEffect(() => {
     ;(async () => {
       const [tiposData, contasData] = await Promise.all([
@@ -71,7 +62,16 @@ export default function ResumoPage() {
     })()
   }, [])
 
-  // Busca os dados de dashboard sempre que filtros ou dias mudam
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        setDebouncedFilters(filters);
+    }, 500);
+
+    return () => {
+        clearTimeout(handler);
+    };
+  }, [filters]);
+
   useEffect(() => {
     ;(async () => {
       setLoading(true)
@@ -79,7 +79,7 @@ export default function ResumoPage() {
 
       try {
         const params = new URLSearchParams()
-        Object.entries(filters).forEach(([k, v]) => v && params.append(k, v))
+        Object.entries(debouncedFilters).forEach(([k, v]) => v && params.append(k, v))
         params.append('diasVencimento', diasVencimento)
 
         const headers = getAuthHeader()
@@ -98,7 +98,7 @@ export default function ResumoPage() {
         setLoading(false)
       }
     })()
-  }, [filters, diasVencimento])
+  }, [debouncedFilters, diasVencimento])
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target
@@ -134,12 +134,9 @@ export default function ResumoPage() {
     })
 
   const totalGeral = saldos.reduce((sum, c) => sum + c.saldo, 0)
-  const saldosTitle =
-    filters.dataInicio || filters.dataFim
-      ? 'Resultado do Período'
-      : 'Saldos Atuais'
-
-  if (loading && !metrics) {
+  
+  // A tela de carregamento principal só aparece na primeira vez que a página é carregada
+  if (!metrics) {
     return (
       <main className="min-h-screen pt-16 flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
         <p className="text-gray-400 text-xl">Carregando resumo...</p>
@@ -167,7 +164,6 @@ export default function ResumoPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
       >
-        {/* Header */}
         <motion.header
           className="flex justify-between items-center mb-6 border-b-2 border-orange-500 pb-4"
           initial={{ y: -20, opacity: 0 }}
@@ -189,7 +185,6 @@ export default function ResumoPage() {
           </button>
         </motion.header>
 
-        {/* Filtros */}
         <DashboardFiltros
           filters={filters}
           onFilterChange={handleFilterChange}
@@ -207,164 +202,187 @@ export default function ResumoPage() {
 
         {error && <div className="text-center py-4 text-red-500">{error}</div>}
 
-        {/* Saldos */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-          {saldos.map((conta) => (
-            <motion.div
-              key={conta.contaBancaria}
-              className="p-4 rounded-lg shadow-lg transition border-l-4 bg-gray-700"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                borderColor: conta.saldo < 0 ? '#ef4444' : '#f97316',
-              }}
-            >
-              <h3 className="text-sm font-medium text-gray-300 truncate">
-                {conta.contaBancaria}
-              </h3>
-              <p
-                className={`mt-2 text-2xl font-semibold ${
-                  conta.saldo < 0 ? 'text-red-400' : 'text-gray-100'
-                }`}
-              >
-                {formatBRLNumber(conta.saldo)}
-              </p>
-            </motion.div>
-          ))}
-          <motion.div
-            className="p-4 rounded-lg shadow-lg transition border-l-4 bg-gray-700 border-orange-500"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h3 className="text-sm font-medium text-gray-300">Total Geral</h3>
-            <p className="mt-2 text-2xl font-semibold text-gray-100">
-              {formatBRLNumber(totalGeral)}
-            </p>
-          </motion.div>
-        </section>
-
-        {/* Métricas */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-          {[
-            {
-              label: 'Juros Total',
-              value: metrics.totalJuros || 0,
-              icon: <FaDollarSign className="w-6 h-6 text-green-400" />,
-              border: 'border-l-4 border-green-400',
-            },
-            {
-              label: 'Despesas Totais',
-              value: metrics.totalDespesas || 0,
-              icon: <FaDollarSign className="w-6 h-6 text-red-400" />,
-              border: 'border-l-4 border-red-400',
-            },
-            {
-              label: 'Lucro Líquido',
-              value: metrics.lucroLiquido || 0,
-              icon: <FaClock className="w-6 h-6 text-yellow-300" />,
-              border: 'border-l-4 border-yellow-300',
-            },
-            {
-              label: 'Total Operado',
-              value: metrics.valorOperadoNoMes || 0,
-              icon: <FaChartLine className="w-6 h-6 text-gray-400" />,
-              border: 'border-l-4 border-gray-400',
-            },
-          ].map((item, idx) => (
-            <motion.div
-              key={item.label}
-              className={`p-4 rounded-lg shadow-lg transition bg-gray-700 ${item.border}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + idx * 0.1 }}
-            >
-              <div className="flex items-center space-x-3">
-                {item.icon}
-                <div>
-                  <p className="text-sm text-gray-300">{item.label}</p>
-                  <p className="text-lg font-semibold text-gray-100">
-                    {formatBRLNumber(item.value)}
+        {/* Efeito de transição suave durante o carregamento dos filtros */}
+        <div className={`transition-opacity duration-300 ${loading ? 'opacity-50' : 'opacity-100'}`}>
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {saldos.map((conta, index) => (
+                <motion.div
+                  key={conta.contaBancaria}
+                  className="p-4 rounded-lg shadow-lg transition border-l-4 bg-gray-700"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index }}
+                  style={{
+                    borderColor: conta.saldo < 0 ? '#ef4444' : '#f97316',
+                  }}
+                >
+                  <h3 className="text-sm font-medium text-gray-300 truncate">
+                    {conta.contaBancaria}
+                  </h3>
+                  <p
+                    className={`mt-2 text-2xl font-semibold ${
+                      conta.saldo < 0 ? 'text-red-400' : 'text-gray-100'
+                    }`}
+                  >
+                    {formatBRLNumber(conta.saldo)}
                   </p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </section>
+                </motion.div>
+              ))}
+            </section>
 
-        {/* Vencimentos Próximos e Top 5 (via Apex) */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-          {/* Vencimentos */}
-          <motion.div
-            className="p-6 rounded-lg shadow-lg transition bg-gray-700"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-100">
-                Vencimentos Próximos
-              </h3>
-              <select
-                value={diasVencimento}
-                onChange={(e) => setDiasVencimento(Number(e.target.value))}
-                className="bg-gray-800 text-gray-200 border-gray-600 rounded-md p-1 text-sm focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value={5}>5 dias</option>
-                <option value={15}>15 dias</option>
-                <option value={30}>30 dias</option>
-              </select>
-            </div>
-            <div className="space-y-3 max-h-80 overflow-auto pr-2">
-              {metrics.vencimentosProximos?.length > 0 ? (
-                metrics.vencimentosProximos
-                  .sort(
-                    (a, b) =>
-                      new Date(a.dataVencimento) -
-                      new Date(b.dataVencimento)
-                  )
-                  .map((dup) => (
-                    <div
-                      key={dup.id}
-                      className="flex justify-between items-center text-sm border-b border-gray-600 pb-2 last:border-none"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-200">
-                          {dup.clienteSacado}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          NF {dup.nfCte}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-red-400">
-                          {formatDate(dup.dataVencimento)}
-                        </p>
-                        <p className="text-gray-300">
-                          {formatBRLNumber(dup.valorBruto)}
-                        </p>
-                      </div>
+            <section className="mt-2 flex justify-center">
+                <motion.div
+                    className="p-4 rounded-lg shadow-xl transition border-l-8 bg-gray-700 border-yellow-400 w-full max-w-sm text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                >
+                    <h3 className="text-lg font-medium text-gray-300">Total Geral</h3>
+                    <p className={`mt-2 text-3xl font-semibold ${totalGeral < 0 ? 'text-red-400' : 'text-gray-100'}`}>
+                        {formatBRLNumber(totalGeral)}
+                    </p>
+                </motion.div>
+            </section>
+            
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+              {[
+                {
+                  label: 'Juros Total',
+                  value: metrics.totalJuros || 0,
+                  icon: <FaDollarSign className="w-6 h-6 text-green-400" />,
+                  border: 'border-l-4 border-green-400',
+                },
+                {
+                  label: 'Despesas Totais',
+                  value: metrics.totalDespesas || 0,
+                  icon: <FaDollarSign className="w-6 h-6 text-red-400" />,
+                  border: 'border-l-4 border-red-400',
+                },
+                {
+                  label: 'Lucro Líquido',
+                  value: metrics.lucroLiquido || 0,
+                  icon: <FaClock className="w-6 h-6 text-yellow-300" />,
+                  border: 'border-l-4 border-yellow-300',
+                },
+                {
+                  label: 'Total Operado',
+                  value: metrics.valorOperadoNoMes || 0,
+                  icon: <FaChartLine className="w-6 h-6 text-gray-400" />,
+                  border: 'border-l-4 border-gray-400',
+                },
+              ].map((item, idx) => (
+                <motion.div
+                  key={item.label}
+                  className={`p-4 rounded-lg shadow-lg transition bg-gray-700 ${item.border}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + idx * 0.1 }}
+                >
+                  <div className="flex items-center space-x-3">
+                    {item.icon}
+                    <div>
+                      <p className="text-sm text-gray-300">{item.label}</p>
+                      <p className="text-lg font-semibold text-gray-100">
+                        {formatBRLNumber(item.value)}
+                      </p>
                     </div>
-                  ))
-              ) : (
-                <p className="text-gray-400">
-                  Nenhuma duplicata a vencer nos próximos {diasVencimento} dias.
-                </p>
-              )}
-            </div>
-          </motion.div>
+                  </div>
+                </motion.div>
+              ))}
+            </section>
 
-          {/* Top 5 Cedentes e Sacados */}
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <TopFiveApex
-              data={metrics.topClientes || []}
-              title="Top 5 Cedentes por Valor"
-            />
-            <TopFiveApex
-              data={metrics.topSacados || []}
-              title="Top 5 Sacados por Valor"
-            />
-          </div>
-        </section>
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+              <motion.div
+                className="p-6 rounded-lg shadow-lg transition bg-gray-700"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-100">
+                    Vencimentos Próximos
+                  </h3>
+                  <select
+                    value={diasVencimento}
+                    onChange={(e) => setDiasVencimento(Number(e.target.value))}
+                    className="bg-gray-800 text-gray-200 border-gray-600 rounded-md p-1 text-sm focus:ring-orange-500 focus:border-orange-500"
+                  >
+                    <option value={5}>5 dias</option>
+                    <option value={15}>15 dias</option>
+                    <option value={30}>30 dias</option>
+                  </select>
+                </div>
+                <div className="space-y-3 max-h-80 overflow-auto pr-2">
+                  {metrics.vencimentosProximos?.length > 0 ? (
+                    metrics.vencimentosProximos
+                      .sort(
+                        (a, b) =>
+                          new Date(a.dataVencimento) -
+                          new Date(b.dataVencimento)
+                      )
+                      .map((dup) => (
+                        <div
+                          key={dup.id}
+                          className="flex justify-between items-center text-sm border-b border-gray-600 pb-2 last:border-none"
+                        >
+                          <div>
+                            <p className="font-medium text-gray-200">
+                              {dup.clienteSacado}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              NF {dup.nfCte}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-red-400">
+                              {formatDate(dup.dataVencimento)}
+                            </p>
+                            <p className="text-gray-300">
+                              {formatBRLNumber(dup.valorBruto)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-400">
+                      Nenhuma duplicata a vencer nos próximos {diasVencimento} dias.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.div
+                className="lg:col-span-2 bg-gray-700 p-6 rounded-lg shadow-lg"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+              >
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-100">
+                        {topFiveChartType === 'cedentes' ? 'Top 5 Cedentes por Valor' : 'Top 5 Sacados por Valor'}
+                    </h3>
+                    <div className="flex space-x-1 rounded-lg bg-gray-800 p-1 w-auto">
+                        <button
+                            onClick={() => setTopFiveChartType('cedentes')}
+                            className={`px-4 py-1 text-sm font-medium rounded-md transition ${topFiveChartType === 'cedentes' ? 'bg-orange-500 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                        >
+                            Cedentes
+                        </button>
+                        <button
+                            onClick={() => setTopFiveChartType('sacados')}
+                            className={`px-4 py-1 text-sm font-medium rounded-md transition ${topFiveChartType === 'sacados' ? 'bg-orange-500 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                        >
+                            Sacados
+                        </button>
+                    </div>
+                </div>
+                
+                <TopFiveApex
+                  data={topFiveChartType === 'cedentes' ? (metrics.topClientes || []) : (metrics.topSacados || [])}
+                />
+              </motion.div>
+            </section>
+        </div>
       </motion.div>
     </main>
   )

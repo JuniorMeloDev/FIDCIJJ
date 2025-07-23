@@ -2,18 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import Notification from '@/app/components/Notification';
 import UserModal from '@/app/components/UserModal';
+import useAuth from '@/app/hooks/useAuth'; // Importe o hook
 
 const API_URL = 'http://localhost:8080/api/users';
 
 export default function UsuariosPage() {
+    const { isAdmin } = useAuth(); // Use o hook
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
+
+    // ... (o restante do seu código permanece o mesmo) ...
 
     const getAuthHeader = () => {
         const token = localStorage.getItem('authToken');
@@ -63,8 +68,9 @@ export default function UsuariosPage() {
         }
     };
 
+
     return (
-        <main className="p-4 sm:p-6">
+        <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <UserModal 
                 isOpen={isModalOpen}
@@ -72,41 +78,47 @@ export default function UsuariosPage() {
                 onSave={handleSave}
                 user={editingUser}
             />
-            <header className="mb-4">
-                <h1 className="text-2xl font-bold text-gray-800">Cadastros</h1>
-            </header>
-            <div className="mb-4 border-b border-gray-200">
+            <motion.header 
+                className="mb-4 border-b-2 border-orange-500 pb-4"
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+            >
+                <h1 className="text-3xl font-bold">Cadastros</h1>
+            </motion.header>
+            <div className="mb-4 border-b border-gray-700">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <Link href="/cadastros/clientes" className="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Clientes (Cedentes)</Link>
-                    <Link href="/cadastros/sacados" className="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
-                    <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Tipos de Operação</Link>
-                    <Link href="/cadastros/usuarios" className="border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Usuários</Link>
+                    <Link href="/cadastros/clientes" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Clientes (Cedentes)</Link>
+                    <Link href="/cadastros/sacados" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sacados (Devedores)</Link>
+                    <Link href="/cadastros/tipos-operacao" className="border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Tipos de Operação</Link>
+                    {isAdmin && (
+                        <Link href="/cadastros/usuarios" className="border-orange-500 text-orange-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Usuários</Link>
+                    )}
                 </nav>
             </div>
 
-            <div className="bg-white p-4 rounded-lg shadow-md">
+            <div className="bg-gray-800 p-4 rounded-lg shadow-md">
                 <div className="flex justify-end mb-4">
-                    <button onClick={() => { setEditingUser(null); setIsModalOpen(true); }} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md">Novo Usuário</button>
+                    <button onClick={() => { setEditingUser(null); setIsModalOpen(true); }} className="bg-orange-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-orange-600 transition">Novo Usuário</button>
                 </div>
-                {loading && <p>A carregar...</p>}
-                {error && <p className="text-red-500">{error}</p>}
+                {loading && <p className="text-gray-400">A carregar...</p>}
+                {error && <p className="text-red-400">{error}</p>}
                 {!loading && !error && (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-700">
+                        <thead className="bg-gray-700">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Nome</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Telefone</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Cargo</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Nome</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Telefone</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Cargo</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-gray-800 divide-y divide-gray-700">
                             {users.map(user => (
                                 <tr key={user.id}>
-                                    <td className="px-6 py-4 text-sm font-medium">{user.username}</td>
-                                    <td className="px-6 py-4 text-sm">{user.email}</td>
-                                    <td className="px-6 py-4 text-sm">{user.telefone}</td>
-                                    <td className="px-6 py-4 text-sm">{user.roles}</td>
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-100">{user.username}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-400">{user.email}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-400">{user.telefone}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-400">{user.roles}</td>
                                 </tr>
                             ))}
                         </tbody>

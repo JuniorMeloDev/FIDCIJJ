@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import Notification from '../components/Notification';
 
@@ -70,11 +71,11 @@ export default function ProfilePage() {
     }, []);
 
     if (loading) {
-        return <div className="p-8">A carregar perfil...</div>;
+        return <div className="p-8 text-center text-gray-300">A carregar perfil...</div>;
     }
 
     if (error) {
-        return <div className="p-8 text-red-500">{error}</div>;
+        return <div className="p-8 text-center text-red-400">{error}</div>;
     }
 
     return (
@@ -85,39 +86,48 @@ export default function ProfilePage() {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handlePasswordSave}
             />
-            <main className="p-4 sm:p-6">
-                <header className="mb-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-800">Perfil do Usuário</h1>
+            <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+                <motion.header 
+                    className="mb-6 flex justify-between items-center border-b-2 border-orange-500 pb-4"
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                >
+                    <h1 className="text-3xl font-bold">Perfil do Usuário</h1>
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-md hover:bg-gray-300"
+                        className="bg-orange-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-orange-600 transition"
                     >
                         Alterar Senha
                     </button>
-                </header>
+                </motion.header>
                 
                 {user && (
-                    <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl">
-                        <h2 className="text-xl font-semibold border-b pb-3 mb-4">Informações</h2>
+                    <motion.div 
+                        className="bg-gray-800 p-6 rounded-lg shadow-md max-w-2xl"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <h2 className="text-xl font-semibold border-b border-gray-700 pb-3 mb-4">Informações</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-500">Nome</label>
-                                <p className="mt-1 text-lg text-gray-900">{user.username}</p>
+                                <label className="block text-sm font-medium text-gray-400">Nome</label>
+                                <p className="mt-1 text-lg text-gray-100">{user.username}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500">Login do Usuário</label>
-                                <p className="mt-1 text-lg text-gray-900">{user.email || 'Não informado'}</p>
+                                <label className="block text-sm font-medium text-gray-400">Login do Usuário</label>
+                                <p className="mt-1 text-lg text-gray-100">{user.email || 'Não informado'}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500">E-mail</label>
-                                <p className="mt-1 text-lg text-gray-900">{user.email || 'Não informado'}</p>
+                                <label className="block text-sm font-medium text-gray-400">E-mail</label>
+                                <p className="mt-1 text-lg text-gray-100">{user.email || 'Não informado'}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-500">Telefone</label>
-                                <p className="mt-1 text-lg text-gray-900">{user.telefone || 'Não informado'}</p>
+                                <label className="block text-sm font-medium text-gray-400">Telefone</label>
+                                <p className="mt-1 text-lg text-gray-100">{user.telefone || 'Não informado'}</p>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
             </main>
         </>

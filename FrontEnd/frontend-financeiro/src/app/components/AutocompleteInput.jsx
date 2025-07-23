@@ -17,20 +17,22 @@ const DropdownPortal = ({ sugestoes, onSugestaoClick, inputRef }) => {
                 width: `${rect.width}px`,
             });
         }
-    }, [sugestoes]); // Recalcula a posição sempre que a lista de sugestões muda
+    }, [sugestoes, inputRef]);
 
     if (sugestoes.length === 0) return null;
 
     return createPortal(
-        <ul style={style} className="z-50 bg-white border border-gray-300 rounded-md max-h-40 overflow-y-auto shadow-lg">
+        // Estilos corrigidos para o tema escuro
+        <ul style={style} className="z-50 bg-gray-600 border border-gray-500 rounded-md max-h-40 overflow-y-auto shadow-lg">
             {sugestoes.map(banco => (
                 <li
                     key={banco.ispb}
-                    onMouseDown={(e) => { // Usamos onMouseDown para evitar que o input perca o foco antes do clique
+                    onMouseDown={(e) => {
                         e.preventDefault();
                         onSugestaoClick(banco);
                     }}
-                    className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100"
+                    // Estilos corrigidos para o tema escuro
+                    className="px-3 py-2 text-sm text-gray-200 cursor-pointer hover:bg-gray-500"
                 >
                     {banco.name}
                 </li>
@@ -57,7 +59,7 @@ export default function AutocompleteInput({ value, onChange }) {
 
     const handleInputChange = (e) => {
         const query = e.target.value;
-        onChange(query); // Informa o pai sobre a mudança
+        onChange(query);
         
         if (query.length > 0 && bancos.length > 0) {
             const filteredSugestoes = bancos.filter(banco =>
@@ -70,8 +72,8 @@ export default function AutocompleteInput({ value, onChange }) {
     };
 
     const handleSugestaoClick = (sugestao) => {
-        onChange(sugestao.name); // Informa o pai sobre o valor selecionado
-        setSugestoes([]); // Limpa as sugestões
+        onChange(sugestao.name);
+        setSugestoes([]);
     };
 
     return (
@@ -81,12 +83,13 @@ export default function AutocompleteInput({ value, onChange }) {
                 type="text"
                 name="banco"
                 placeholder="Banco"
-                value={value || ''} // O valor é sempre controlado pelo componente pai
+                value={value || ''}
                 onChange={handleInputChange}
                 onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)} // Controlamos o foco para fechar o dropdown
+                onBlur={() => setIsFocused(false)}
                 autoComplete="off"
-                className="border-gray-300 rounded-md shadow-sm p-1.5 text-sm w-full"
+                // Estilos corrigidos para o tema escuro
+                className="bg-gray-700 border-gray-600 rounded-md shadow-sm p-1.5 text-sm w-full text-white"
             />
             {isFocused && sugestoes.length > 0 && (
                 <DropdownPortal 

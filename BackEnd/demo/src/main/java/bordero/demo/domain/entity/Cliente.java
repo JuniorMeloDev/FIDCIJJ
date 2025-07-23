@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -27,6 +28,10 @@ public class Cliente {
     @Column(name = "ramo_atividade")
     private String ramoDeAtividade;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "cliente_emails", joinColumns = @JoinColumn(name = "cliente_id"))
+    @Column(name = "email")
+    private List<String> emails = new ArrayList<>();
     
     // --- NOVOS CAMPOS (iguais ao Sacado) ---
     private String endereco;

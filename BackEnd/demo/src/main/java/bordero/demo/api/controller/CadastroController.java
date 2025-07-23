@@ -5,6 +5,7 @@ import bordero.demo.api.dto.ContaBancariaDto;
 import bordero.demo.api.dto.SacadoDto;
 import bordero.demo.api.dto.TipoOperacaoDto;
 import bordero.demo.domain.entity.Cliente;
+import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.service.CadastroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.Optional;
 public class CadastroController {
 
     private final CadastroService cadastroService;
+    private final ClienteRepository clienteRepository; 
 
     // --- Endpoints para Clientes (Cedentes) ---
 
@@ -49,6 +51,14 @@ public class CadastroController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/clientes/emails")
+    public ResponseEntity<List<String>> getEmailsByClienteNome(@RequestParam String nome) {
+        Optional<Cliente> clienteOpt = clienteRepository.findByNomeIgnoreCase(nome);
+        if (clienteOpt.isPresent() && clienteOpt.get().getEmails() != null) {
+            return ResponseEntity.ok(clienteOpt.get().getEmails());
+        }
+        return ResponseEntity.ok(Collections.emptyList());
+    }
 
     // --- Endpoints para Sacados (Devedores) ---
 

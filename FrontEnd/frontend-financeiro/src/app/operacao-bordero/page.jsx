@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import AdicionarNotaFiscalForm from '@/app/components/AdicionarNotaFiscalForm';
 import OperacaoDetalhes from '@/app/components/OperacaoDetalhes';
 import OperacaoHeader from '@/app/components/OperacaoHeader';
@@ -8,6 +9,8 @@ import Notification from '@/app/components/Notification';
 import DescontoModal from '@/app/components/DescontoModal';
 import EditClienteModal from '@/app/components/EditClienteModal';
 import EditSacadoModal from '@/app/components/EditSacadoModal';
+import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
+import ConfirmEmailModal from '@/app/components/EmailModal';
 import { formatBRLInput, parseBRL } from '@/app/utils/formatters';
 
 const API_URL = 'http://localhost:8080/api';
@@ -21,18 +24,21 @@ export default function OperacaoBorderoPage() {
     const [descontos, setDescontos] = useState([]);
     const [contasBancarias, setContasBancarias] = useState([]);
     const [contaBancariaId, setContaBancariaId] = useState('');
-    
     const [isDescontoModalOpen, setIsDescontoModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notification, setNotification] = useState({ message: '', type: '' });
     const fileInputRef = useRef(null);
-    
     const [tiposOperacao, setTiposOperacao] = useState([]);
     const [clienteParaCriar, setClienteParaCriar] = useState(null);
     const [sacadoParaCriar, setSacadoParaCriar] = useState(null);
     const [xmlDataPendente, setXmlDataPendente] = useState(null);
     const [condicoesSacado, setCondicoesSacado] = useState([]);
+    const [ignoreDespesasBancarias, setIgnoreDespesasBancarias] = useState(false);
+    const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+    const [savedOperacaoInfo, setSavedOperacaoInfo] = useState(null);
+    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
 
     const getAuthHeader = () => {
         const token = localStorage.getItem('authToken');
@@ -95,11 +101,9 @@ export default function OperacaoBorderoPage() {
     const handleXmlUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
         showNotification("A processar XML...", "info");
         const formData = new FormData();
         formData.append('file', file);
-
         try {
             const response = await fetch(`${API_URL}/upload/nfe-xml`, { 
                 method: 'POST', 
@@ -133,13 +137,11 @@ export default function OperacaoBorderoPage() {
             return Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24));
         }) : [];
         const prazosString = prazosArray.join('/');
-
         let valorFormatado = '';
         if (data.valorTotal) {
             const valorEmCentavosString = data.valorTotal.toFixed(2).replace('.', '');
             valorFormatado = formatBRLInput(valorEmCentavosString);
         }
-
         setNovaNf({
             nfCte: data.numeroNf || '',
             dataNf: data.dataEmissao ? data.dataEmissao.split('T')[0] : '',
@@ -153,7 +155,6 @@ export default function OperacaoBorderoPage() {
         showNotification("Dados do XML preenchidos com sucesso!", "success");
         setXmlDataPendente(null);
     };
-
 
     const handleSaveNovoCliente = async (id, data) => {
         try {
@@ -194,21 +195,12 @@ export default function OperacaoBorderoPage() {
         }
     };
 
-    const handleSelectCedente = (cliente) => {
-        setEmpresaCedente(cliente.nome);
-    };
-
+    const handleSelectCedente = (cliente) => { setEmpresaCedente(cliente.nome); };
     const handleSelectSacado = (sacado) => {
         setCondicoesSacado(sacado.condicoesPagamento || []);
-
         if (sacado.condicoesPagamento && sacado.condicoesPagamento.length > 0) {
             const condicaoPadrao = sacado.condicoesPagamento[0];
-            setNovaNf(prev => ({
-                ...prev,
-                clienteSacado: sacado.nome,
-                prazos: condicaoPadrao.prazos,
-                parcelas: String(condicaoPadrao.parcelas)
-            }));
+            setNovaNf(prev => ({ ...prev, clienteSacado: sacado.nome, prazos: condicaoPadrao.prazos, parcelas: String(condicaoPadrao.parcelas) }));
             showNotification('Prazos e parcelas preenchidos automaticamente.', 'success');
         } else {
             setNovaNf(prev => ({ ...prev, clienteSacado: sacado.nome, prazos: '', parcelas: '1' }));
@@ -218,11 +210,7 @@ export default function OperacaoBorderoPage() {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        if (name === 'valorNf') {
-            setNovaNf(prevState => ({ ...prevState, [name]: formatBRLInput(value) }));
-        } else {
-            setNovaNf(prevState => ({ ...prevState, [name]: value }));
-        }
+        setNovaNf(prevState => ({ ...prevState, [name]: name === 'valorNf' ? formatBRLInput(value) : value }));
     };
 
     const handleAddNotaFiscal = async (e) => {
@@ -234,35 +222,15 @@ export default function OperacaoBorderoPage() {
         setIsLoading(true);
         const valorNfFloat = parseBRL(novaNf.valorNf);
         const body = { 
-            dataOperacao, 
-            tipoOperacaoId: parseInt(tipoOperacaoId), 
-            clienteSacado: novaNf.clienteSacado, 
-            dataNf: novaNf.dataNf, 
-            valorNf: valorNfFloat, 
-            parcelas: parseInt(novaNf.parcelas) || 1, 
-            prazos: novaNf.prazos,
-            peso: parseFloat(String(novaNf.peso).replace(',', '.')) || null
+            dataOperacao, tipoOperacaoId: parseInt(tipoOperacaoId), clienteSacado: novaNf.clienteSacado, 
+            dataNf: novaNf.dataNf, valorNf: valorNfFloat, parcelas: parseInt(novaNf.parcelas) || 1, 
+            prazos: novaNf.prazos, peso: parseFloat(String(novaNf.peso).replace(',', '.')) || null
         };
         try {
-            const response = await fetch(`${API_URL}/operacoes/calcular-juros`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-                body: JSON.stringify(body),
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Falha ao calcular os juros.');
-            }
+            const response = await fetch(`${API_URL}/operacoes/calcular-juros`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify(body) });
+            if (!response.ok) throw new Error(await response.text() || 'Falha ao calcular os juros.');
             const calculoResult = await response.json();
-            const nfParaAdicionar = {
-                id: Date.now(),
-                ...novaNf,
-                valorNf: valorNfFloat,
-                parcelas: parseInt(novaNf.parcelas) || 1,
-                jurosCalculado: calculoResult.totalJuros,
-                valorLiquidoCalculado: calculoResult.valorLiquido,
-            };
-            setNotasFiscais([...notasFiscais, nfParaAdicionar]);
+            setNotasFiscais([...notasFiscais, { id: Date.now(), ...novaNf, valorNf: valorNfFloat, parcelas: parseInt(novaNf.parcelas) || 1, jurosCalculado: calculoResult.totalJuros, valorLiquidoCalculado: calculoResult.valorLiquido }]);
             setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
         } catch (error) {
             showNotification(error.message, 'error');
@@ -272,41 +240,24 @@ export default function OperacaoBorderoPage() {
     };
 
     const handleSalvarOperacao = async () => {
-        if (notasFiscais.length === 0) {
-            showNotification('Adicione pelo menos uma nota fiscal para guardar a operação.', 'error');
-            return;
-        }
-        if (!contaBancariaId) {
-            showNotification('Selecione uma conta bancária para realizar o débito.', 'error');
+        if (notasFiscais.length === 0 || !contaBancariaId) {
+            showNotification('Adicione ao menos uma NF e selecione uma conta bancária.', 'error');
             return;
         }
         setIsSaving(true);
         const payload = {
-            dataOperacao,
-            tipoOperacaoId: parseInt(tipoOperacaoId),
-            empresaCedente,
-            contaBancariaId: parseInt(contaBancariaId),
-            descontos,
-            notasFiscais: notasFiscais.map(nf => ({
-                ...nf,
-                jurosCalculado: undefined,
-                valorLiquidoCalculado: undefined,
-                peso: parseFloat(String(nf.peso).replace(',', '.')) || null
-            }))
+            dataOperacao, tipoOperacaoId: parseInt(tipoOperacaoId), empresaCedente, contaBancariaId: parseInt(contaBancariaId),
+            descontos: todosOsDescontos.map(({ id, ...rest }) => rest),
+            notasFiscais: notasFiscais.map(nf => ({ ...nf, jurosCalculado: undefined, valorLiquidoCalculado: undefined, peso: parseFloat(String(nf.peso).replace(',', '.')) || null }))
         };
         try {
-            const response = await fetch(`${API_URL}/operacoes/salvar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Ocorreu um erro ao guardar a operação.');
-            }
+            const response = await fetch(`${API_URL}/operacoes/salvar`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error(await response.text() || 'Ocorreu um erro ao guardar a operação.');
             const operacaoId = await response.json();
-            showNotification(`Operação ${operacaoId} guardada com sucesso!`, 'success');
-            handleLimparTudo();
+            const tipoOp = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
+            setSavedOperacaoInfo({ id: operacaoId, tipoOperacao: tipoOp?.nome, empresaCedente });
+            showNotification(`Operação salva com sucesso!`, 'success');
+            setShowEmailPrompt(true);
         } catch (error) {
             showNotification(error.message, 'error');
         } finally {
@@ -314,7 +265,23 @@ export default function OperacaoBorderoPage() {
         }
     };
 
-    const handleLimparTudo = () => {
+    const handleSendEmail = async (destinatarios) => {
+        if (!savedOperacaoInfo) return;
+        setIsSendingEmail(true);
+        try {
+            const response = await fetch(`${API_URL}/operacoes/${savedOperacaoInfo.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify({ destinatarios }) });
+            if (!response.ok) throw new Error("Falha ao enviar o e-mail.");
+            showNotification("E-mail(s) enviado(s) com sucesso!", "success");
+        } catch (err) {
+            showNotification(err.message, "error");
+        } finally {
+            setIsSendingEmail(false);
+            setIsEmailModalOpen(false);
+            handleLimparTudo(false);
+        }
+    };
+
+    const handleLimparTudo = (showMsg = true) => {
         setDataOperacao(new Date().toISOString().split('T')[0]);
         setTipoOperacaoId('');
         setEmpresaCedente('');
@@ -322,24 +289,38 @@ export default function OperacaoBorderoPage() {
         setDescontos([]);
         setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
         setCondicoesSacado([]);
-        showNotification('Formulário limpo.', 'success');
+        setIgnoreDespesasBancarias(false);
+        if (showMsg) showNotification('Formulário limpo.', 'success');
     };
+
+    const todosOsDescontos = useMemo(() => {
+        const selectedOperacao = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
+        const despesasBancarias = selectedOperacao?.despesasBancarias || 0;
+        const combined = [...descontos];
+        if (despesasBancarias > 0 && !ignoreDespesasBancarias) {
+            combined.push({ id: 'despesas-bancarias', descricao: 'Despesas Bancárias', valor: despesasBancarias });
+        }
+        return combined;
+    }, [descontos, tipoOperacaoId, tiposOperacao, ignoreDespesasBancarias]);
 
     const totais = useMemo(() => {
         const valorTotalBruto = notasFiscais.reduce((acc, nf) => acc + nf.valorNf, 0);
         const desagioTotal = notasFiscais.reduce((acc, nf) => acc + (nf.jurosCalculado || 0), 0);
-        const totalOutrosDescontos = descontos.reduce((acc, d) => acc + d.valor, 0);
-
+        const totalOutrosDescontos = todosOsDescontos.reduce((acc, d) => acc + d.valor, 0);
         const selectedOperacao = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
         const isValorFixoType = selectedOperacao && selectedOperacao.valorFixo > 0;
-
-        const liquidoOperacao = isValorFixoType
-            ? valorTotalBruto - totalOutrosDescontos
-            : valorTotalBruto - desagioTotal - totalOutrosDescontos;
-
+        const liquidoOperacao = isValorFixoType ? valorTotalBruto - totalOutrosDescontos : valorTotalBruto - desagioTotal - totalOutrosDescontos;
         return { valorTotalBruto, desagioTotal, totalOutrosDescontos, liquidoOperacao };
-    }, [notasFiscais, descontos, tipoOperacaoId, tiposOperacao]);
+    }, [notasFiscais, todosOsDescontos, tipoOperacaoId, tiposOperacao]);
     
+    const handleRemoveDesconto = (idToRemove) => {
+        if (idToRemove === 'despesas-bancarias') {
+            setIgnoreDespesasBancarias(true);
+        } else {
+            setDescontos(descontos.filter(d => d.id !== idToRemove));
+        }
+    };
+
     return (
         <>
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
@@ -347,56 +328,25 @@ export default function OperacaoBorderoPage() {
             <EditClienteModal isOpen={!!clienteParaCriar} onClose={() => setClienteParaCriar(null)} cliente={clienteParaCriar} onSave={handleSaveNovoCliente} showNotification={showNotification} />
             <EditSacadoModal isOpen={!!sacadoParaCriar} onClose={() => setSacadoParaCriar(null)} sacado={sacadoParaCriar} onSave={handleSaveNovoSacado} showNotification={showNotification} />
             
-            <main className="p-4 sm:p-6 flex flex-col h-full">
-                <header className="mb-4 flex justify-between items-center">
+            <ConfirmacaoModal isOpen={showEmailPrompt} onClose={() => { setShowEmailPrompt(false); handleLimparTudo(false); }} onConfirm={() => { setShowEmailPrompt(false); setIsEmailModalOpen(true); }} title="Envio de E-mail" message="Deseja enviar o Borderô por email?" />
+            
+            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => { setIsEmailModalOpen(false); handleLimparTudo(false); }} onSend={handleSendEmail} isSending={isSendingEmail} tipoOperacao={savedOperacaoInfo?.tipoOperacao} clienteNome={savedOperacaoInfo?.empresaCedente} />
+
+            <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+                <motion.header className="mb-4 flex justify-between items-center border-b-2 border-orange-500 pb-4" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Criar Borderô</h1>
-                        <p className="text-sm text-gray-600 mt-1">Preencha os dados abaixo ou importe um XML.</p>
+                        <h1 className="text-3xl font-bold">Criar Borderô</h1>
+                        <p className="text-sm text-gray-300 mt-1">Preencha os dados abaixo ou importe um XML.</p>
                     </div>
                     <div>
                         <input type="file" accept=".xml" ref={fileInputRef} onChange={handleXmlUpload} style={{ display: 'none' }} id="xml-upload-input"/>
-                        <button onClick={() => fileInputRef.current.click()} className="bg-gray-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-gray-800">
-                            Importar NF-e (XML)
-                        </button>
+                        <button onClick={() => fileInputRef.current.click()} className="bg-gray-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm hover:bg-gray-600 transition">Importar NF-e (XML)</button>
                     </div>
-                </header>
+                </motion.header>
 
-                <OperacaoHeader 
-                    dataOperacao={dataOperacao}
-                    setDataOperacao={setDataOperacao}
-                    tipoOperacaoId={tipoOperacaoId}
-                    setTipoOperacaoId={setTipoOperacaoId}
-                    tiposOperacao={tiposOperacao}
-                    empresaCedente={empresaCedente}
-                    setEmpresaCedente={setEmpresaCedente}
-                    onSelectCedente={handleSelectCedente}
-                    fetchClientes={fetchClientes}
-                />
-
-                <AdicionarNotaFiscalForm 
-                    novaNf={novaNf}
-                    handleInputChange={handleInputChange}
-                    handleAddNotaFiscal={handleAddNotaFiscal}
-                    isLoading={isLoading}
-                    onSelectSacado={handleSelectSacado}
-                    fetchSacados={fetchSacados}
-                    condicoesSacado={condicoesSacado}
-                    setNovaNf={setNovaNf}
-                />
-
-                <OperacaoDetalhes 
-                    notasFiscais={notasFiscais}
-                    descontos={descontos}
-                    totais={totais}
-                    handleSalvarOperacao={handleSalvarOperacao}
-                    handleLimparTudo={handleLimparTudo}
-                    isSaving={isSaving}
-                    onAddDescontoClick={() => setIsDescontoModalOpen(true)}
-                    onRemoveDesconto={(id) => setDescontos(descontos.filter(d => d.id !== id))}
-                    contasBancarias={contasBancarias}
-                    contaBancariaId={contaBancariaId}
-                    setContaBancariaId={setContaBancariaId}
-                />
+                <OperacaoHeader dataOperacao={dataOperacao} setDataOperacao={setDataOperacao} tipoOperacaoId={tipoOperacaoId} setTipoOperacaoId={setTipoOperacaoId} tiposOperacao={tiposOperacao} empresaCedente={empresaCedente} setEmpresaCedente={setEmpresaCedente} onSelectCedente={handleSelectCedente} fetchClientes={fetchClientes} />
+                <AdicionarNotaFiscalForm novaNf={novaNf} handleInputChange={handleInputChange} handleAddNotaFiscal={handleAddNotaFiscal} isLoading={isLoading} onSelectSacado={handleSelectSacado} fetchSacados={fetchSacados} condicoesSacado={condicoesSacado} setNovaNf={setNovaNf} />
+                <OperacaoDetalhes notasFiscais={notasFiscais} descontos={todosOsDescontos} totais={totais} handleSalvarOperacao={handleSalvarOperacao} handleLimparTudo={handleLimparTudo} isSaving={isSaving} onAddDescontoClick={() => setIsDescontoModalOpen(true)} onRemoveDesconto={handleRemoveDesconto} contasBancarias={contasBancarias} contaBancariaId={contaBancariaId} setContaBancariaId={setContaBancariaId} />
             </main>
         </>
     );

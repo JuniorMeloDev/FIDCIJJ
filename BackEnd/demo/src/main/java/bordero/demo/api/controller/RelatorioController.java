@@ -7,10 +7,7 @@ import bordero.demo.domain.entity.Cliente;
 import bordero.demo.domain.entity.TipoOperacao;
 import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.domain.repository.TipoOperacaoRepository;
-import bordero.demo.service.DashboardService;
-import bordero.demo.service.MovimentacaoCaixaService;
-import bordero.demo.service.OperacaoService;
-import bordero.demo.service.PdfGenerationService;
+import bordero.demo.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -22,9 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/api/relatorios")
@@ -35,9 +32,9 @@ public class RelatorioController {
     private final OperacaoService operacaoService;
     private final DashboardService dashboardService;
     private final PdfGenerationService pdfGenerationService;
+    private final ExcelGenerationService excelGenerationService; // Injetar novo serviço
     private final ClienteRepository clienteRepository;
     private final TipoOperacaoRepository tipoOperacaoRepository;
-
 
     @GetMapping("/fluxo-caixa")
     public ResponseEntity<byte[]> gerarRelatorioFluxoCaixa(
@@ -48,16 +45,27 @@ public class RelatorioController {
             @RequestParam(required = false) String categoria,
             @RequestParam(required = false) String tipoValor,
             @RequestParam(defaultValue = "dataMovimento") String sort,
-            @RequestParam(defaultValue = "DESC") String direction
-    ) {
-        List<MovimentacaoCaixaResponseDto> movimentacoes = movimentacaoCaixaService.listarComFiltros(dataInicio, dataFim, descricao, conta, categoria, sort, direction, tipoValor);
-        byte[] pdfBytes = pdfGenerationService.generateFluxoCaixaPdf(movimentacoes, dataInicio, dataFim, conta, categoria);
+            @RequestParam(defaultValue = "DESC") String direction,
+            @RequestParam(defaultValue = "pdf") String format // Novo parâmetro
+    ) throws IOException {
+        List<MovimentacaoCaixaResponseDto> movimentacoes = movimentacaoCaixaService.listarComFiltros(dataInicio,
+                dataFim, descricao, conta, categoria, sort, direction, tipoValor);
 
+        byte[] bytes;
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "relatorio_fluxo_caixa.pdf");
 
-        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        if ("excel".equalsIgnoreCase(format)) {
+            bytes = excelGenerationService.generateFluxoCaixaExcel(movimentacoes);
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", "relatorio_fluxo_caixa.xlsx");
+        } else {
+            bytes = pdfGenerationService.generateFluxoCaixaPdf(movimentacoes, dataInicio, dataFim, conta, categoria);
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "relatorio_fluxo_caixa.pdf");
+        }
+
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 
     @GetMapping("/duplicatas")
@@ -67,20 +75,35 @@ public class RelatorioController {
             @RequestParam(required = false) Long clienteId,
             @RequestParam(required = false) Long tipoOperacaoId,
             @RequestParam(required = false) String sacado,
-            @RequestParam(required = false) String status
-    ) {
-        List<DuplicataResponseDto> duplicatas = operacaoService.listarTodasAsDuplicatas(dataInicio, dataFim, null, null, sacado, null, null, status, clienteId, tipoOperacaoId, "dataOperacao", "DESC");
-        
-        String clienteNome = clienteId != null ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null) : null;
-        String tipoOperacaoNome = tipoOperacaoId != null ? tipoOperacaoRepository.findById(tipoOperacaoId).map(TipoOperacao::getNome).orElse(null) : null;
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "pdf") String format // Novo parâmetro
+    ) throws IOException {
+        List<DuplicataResponseDto> duplicatas = operacaoService.listarTodasAsDuplicatas(dataInicio, dataFim, null, null,
+                sacado, null, null, status, clienteId, tipoOperacaoId, "dataOperacao", "DESC");
 
-        byte[] pdfBytes = pdfGenerationService.generateDuplicatasPdf(duplicatas, dataInicio, dataFim, clienteNome, tipoOperacaoNome, sacado, status);
+        String clienteNome = clienteId != null
+                ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null)
+                : null;
+        String tipoOperacaoNome = tipoOperacaoId != null
+                ? tipoOperacaoRepository.findById(tipoOperacaoId).map(TipoOperacao::getNome).orElse(null)
+                : null;
 
+        byte[] bytes;
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "relatorio_duplicatas.pdf");
 
-        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        if ("excel".equalsIgnoreCase(format)) {
+            bytes = excelGenerationService.generateDuplicatasExcel(duplicatas);
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", "relatorio_duplicatas.xlsx");
+        } else {
+            bytes = pdfGenerationService.generateDuplicatasPdf(duplicatas, dataInicio, dataFim, clienteNome,
+                    tipoOperacaoNome, sacado, status);
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "relatorio_duplicatas.pdf");
+        }
+
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 
     @GetMapping("/total-operado")
@@ -90,20 +113,34 @@ public class RelatorioController {
             @RequestParam(required = false) Long tipoOperacaoId,
             @RequestParam(required = false) Long clienteId,
             @RequestParam(required = false) String sacado,
-            @RequestParam(required = false) String contaBancaria
-    ) {
-        // Correção: Adicionado 'null' para o parâmetro diasVencimento que faltava
-        DashboardMetricsDto metrics = dashboardService.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId, clienteId, sacado, contaBancaria, null);
-        
-        String clienteNome = clienteId != null ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null) : null;
-        String tipoOperacaoNome = tipoOperacaoId != null ? tipoOperacaoRepository.findById(tipoOperacaoId).map(TipoOperacao::getNome).orElse(null) : null;
+            @RequestParam(required = false) String contaBancaria,
+            @RequestParam(defaultValue = "pdf") String format) throws IOException {
+        DashboardMetricsDto metrics = dashboardService.getDashboardMetrics(dataInicio, dataFim, tipoOperacaoId,
+                clienteId, sacado, contaBancaria, null);
 
-        byte[] pdfBytes = pdfGenerationService.generateTotalOperadoPdf(metrics, dataInicio, dataFim, tipoOperacaoNome, clienteNome, sacado);
+        String clienteNome = clienteId != null
+                ? clienteRepository.findById(clienteId).map(Cliente::getNome).orElse(null)
+                : null;
+        String tipoOperacaoNome = tipoOperacaoId != null
+                ? tipoOperacaoRepository.findById(tipoOperacaoId).map(TipoOperacao::getNome).orElse(null)
+                : null;
 
+        byte[] bytes;
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "relatorio_total_operado.pdf");
 
-        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        // LÓGICA CORRIGIDA
+        if ("excel".equalsIgnoreCase(format)) {
+            bytes = excelGenerationService.generateTotalOperadoExcel(metrics);
+            headers.setContentType(
+                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", "relatorio_total_operado.xlsx");
+        } else {
+            bytes = pdfGenerationService.generateTotalOperadoPdf(metrics, dataInicio, dataFim, tipoOperacaoNome,
+                    clienteNome, sacado);
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "relatorio_total_operado.pdf");
+        }
+
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 }
