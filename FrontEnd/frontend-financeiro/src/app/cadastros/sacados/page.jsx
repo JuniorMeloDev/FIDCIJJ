@@ -25,13 +25,10 @@ export default function SacadosPage() {
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ nome: '', cnpj: '' });
-    
     const [sacadoParaExcluir, setSacadoParaExcluir] = useState(null);
 
-    // ... (o restante do seu código permanece o mesmo) ...
-
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 

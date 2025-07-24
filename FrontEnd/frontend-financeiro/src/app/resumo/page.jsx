@@ -37,9 +37,9 @@ export default function ResumoPage() {
   const [topFiveChartType, setTopFiveChartType] = useState('cedentes');
 
   const getAuthHeader = () => {
-    const token = localStorage.getItem('authToken')
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
+        const token = sessionStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
 
   const fetchApiData = async (url) => {
     try {

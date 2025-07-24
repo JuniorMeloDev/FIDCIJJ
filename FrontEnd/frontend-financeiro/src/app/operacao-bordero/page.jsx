@@ -10,7 +10,7 @@ import DescontoModal from '@/app/components/DescontoModal';
 import EditClienteModal from '@/app/components/EditClienteModal';
 import EditSacadoModal from '@/app/components/EditSacadoModal';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
-import ConfirmEmailModal from '@/app/components/EmailModal';
+import EmailModal from '@/app/components/EmailModal';
 import { formatBRLInput, parseBRL } from '@/app/utils/formatters';
 
 const API_URL = 'http://localhost:8080/api';
@@ -42,7 +42,7 @@ export default function OperacaoBorderoPage() {
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
@@ -158,7 +158,6 @@ export default function OperacaoBorderoPage() {
         setXmlDataPendente(null);
     };
 
-    // CORRIGIDO: Função agora armazena o ID do cliente recém-criado
     const handleSaveNovoCliente = async (id, data) => {
         try {
             const response = await fetch(`${API_URL}/cadastros/clientes`, { 
@@ -169,7 +168,6 @@ export default function OperacaoBorderoPage() {
             if (!response.ok) throw new Error('Falha ao criar novo cliente.');
             
             const novoClienteCriado = await response.json();
-            
             const updatedXmlData = {
                 ...xmlDataPendente,
                 emitente: { ...xmlDataPendente.emitente, id: novoClienteCriado.id },
@@ -190,7 +188,6 @@ export default function OperacaoBorderoPage() {
         }
     };
     
-    // CORRIGIDO: Função também atualiza o estado pendente, por consistência
     const handleSaveNovoSacado = async (id, data) => {
         try {
             const response = await fetch(`${API_URL}/cadastros/sacados`, { 
@@ -199,19 +196,15 @@ export default function OperacaoBorderoPage() {
                 body: JSON.stringify(data) 
             });
             if (!response.ok) throw new Error('Falha ao criar novo sacado.');
-
             const novoSacadoCriado = await response.json();
-            
             const updatedXmlData = {
                 ...xmlDataPendente,
                 sacado: { ...xmlDataPendente.sacado, id: novoSacadoCriado.id },
                 sacadoExiste: true
             };
-
             showNotification('Sacado criado com sucesso!', 'success');
             setSacadoParaCriar(null);
             preencherFormularioComXml(updatedXmlData);
-            
         } catch (err) {
             showNotification(err.message, 'error');
         }
@@ -294,13 +287,20 @@ export default function OperacaoBorderoPage() {
             const operacaoId = await response.json();
             const tipoOp = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
             setSavedOperacaoInfo({ id: operacaoId, tipoOperacao: tipoOp?.nome, clienteId: empresaCedenteId });
-            showNotification(`Operação salva com sucesso!`, 'success');
             setShowEmailPrompt(true);
         } catch (error) {
             showNotification(error.message, 'error');
         } finally {
             setIsSaving(false);
         }
+    };
+    
+    // Função unificada para finalizar a operação
+    const finalizarOperacao = () => {
+        if (savedOperacaoInfo) {
+            showNotification(`Operação salva com sucesso!`, 'success');
+        }
+        handleLimparTudo(false);
     };
 
     const handleSendEmail = async (destinatarios) => {
@@ -315,8 +315,13 @@ export default function OperacaoBorderoPage() {
         } finally {
             setIsSendingEmail(false);
             setIsEmailModalOpen(false);
-            handleLimparTudo(false);
+            finalizarOperacao(); // Chama a função de finalização
         }
+    };
+
+    const handleCloseEmailModal = () => {
+        setIsEmailModalOpen(false);
+        finalizarOperacao(); // Chama a função de finalização
     };
 
     const handleLimparTudo = (showMsg = true) => {
@@ -367,9 +372,27 @@ export default function OperacaoBorderoPage() {
             <EditClienteModal isOpen={!!clienteParaCriar} onClose={() => setClienteParaCriar(null)} cliente={clienteParaCriar} onSave={handleSaveNovoCliente} showNotification={showNotification} />
             <EditSacadoModal isOpen={!!sacadoParaCriar} onClose={() => setSacadoParaCriar(null)} sacado={sacadoParaCriar} onSave={handleSaveNovoSacado} showNotification={showNotification} />
             
-            <ConfirmacaoModal isOpen={showEmailPrompt} onClose={() => { setShowEmailPrompt(false); handleLimparTudo(false); }} onConfirm={() => { setShowEmailPrompt(false); setIsEmailModalOpen(true); }} title="Envio de E-mail" message="Deseja enviar o Borderô por email?" />
+            <ConfirmacaoModal 
+                isOpen={showEmailPrompt}
+                onClose={() => {
+                    setShowEmailPrompt(false);
+                    finalizarOperacao();
+                }}
+                onConfirm={() => {
+                    setShowEmailPrompt(false);
+                    setIsEmailModalOpen(true);
+                }}
+                title="Envio de E-mail"
+                message="Deseja enviar o Borderô por email?"
+            />
             
-            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => { setIsEmailModalOpen(false); handleLimparTudo(false); }} onSend={handleSendEmail} isSending={isSendingEmail} clienteId={savedOperacaoInfo?.clienteId} />
+            <EmailModal 
+                isOpen={isEmailModalOpen}
+                onClose={handleCloseEmailModal}
+                onSend={handleSendEmail}
+                isSending={isSendingEmail}
+                clienteId={savedOperacaoInfo?.clienteId}
+            />
 
             <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
                 <motion.header className="mb-4 flex justify-between items-center border-b-2 border-orange-500 pb-4" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>

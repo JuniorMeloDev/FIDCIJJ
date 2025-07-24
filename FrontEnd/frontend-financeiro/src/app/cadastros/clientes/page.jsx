@@ -28,7 +28,7 @@ export default function ClientesPage() {
     const [filters, setFilters] = useState({ nome: '', cnpj: '' });
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 

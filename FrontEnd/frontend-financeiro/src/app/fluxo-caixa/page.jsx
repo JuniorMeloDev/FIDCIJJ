@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import LancamentoModal from '@/app/components/LancamentoModal';
 import Notification from '@/app/components/Notification';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
-import ConfirmEmailModal from '@/app/components/EmailModal';
+import EmailModal from '@/app/components/EmailModal';
 import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
 import FiltroLateral from '@/app/components/FiltroLateral';
 import Pagination from '@/app/components/Pagination';
@@ -30,7 +30,6 @@ export default function FluxoDeCaixaPage() {
     });
     const [sortConfig, setSortConfig] = useState({ key: 'dataMovimento', direction: 'DESC' });
     
-    // Estados para o menu de contexto
     const [contextMenu, setContextMenu] = useState({
         visible: false,
         x: 0,
@@ -43,7 +42,8 @@ export default function FluxoDeCaixaPage() {
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        // ALTERADO: de localStorage para sessionStorage
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
@@ -269,7 +269,7 @@ export default function FluxoDeCaixaPage() {
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <LancamentoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveLancamento} contasMaster={contasMaster} clienteMasterNome={clienteMasterNome} />
             <ConfirmacaoModal isOpen={!!itemParaExcluir} onClose={() => setItemParaExcluir(null)} onConfirm={handleConfirmDelete} title="Confirmar Exclusão" message="Tem a certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."/>
-            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSend={handleSendEmail} isSending={isSendingEmail} />
+            <EmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSend={handleSendEmail} isSending={isSendingEmail} clienteId={contextMenu.selectedItem?.operacao?.cliente?.id}/>
 
             <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
                 <motion.header 

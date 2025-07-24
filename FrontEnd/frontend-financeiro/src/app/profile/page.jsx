@@ -19,7 +19,7 @@ export default function ProfilePage() {
 
     const handlePasswordSave = async (passwordData) => {
         try {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             const response = await fetch('http://localhost:8080/api/users/change-password', {
                 method: 'POST',
                 headers: { 
@@ -44,7 +44,7 @@ export default function ProfilePage() {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (!token) {
                 setError('Não autenticado.');
                 setLoading(false);

@@ -29,9 +29,9 @@ export default function LoginPage() {
       }
 
       const { token } = await res.json()
-      localStorage.setItem('authToken', token)
+      // ALTERADO: de localStorage para sessionStorage
+      sessionStorage.setItem('authToken', token)
 
-      // redireciona para /resumo
       router.push('/resumo')
     } catch (err) {
       setError(err.message)

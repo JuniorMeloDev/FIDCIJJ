@@ -27,10 +27,9 @@ export default function TiposOperacaoPage() {
     
     const [operacaoParaExcluir, setOperacaoParaExcluir] = useState(null);
 
-    // ... (o restante do seu código permanece o mesmo) ...
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 

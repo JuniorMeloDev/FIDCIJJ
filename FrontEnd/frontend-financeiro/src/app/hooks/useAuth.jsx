@@ -7,7 +7,8 @@ export default function useAuth() {
     const [auth, setAuth] = useState({ user: null, isAdmin: false });
 
     useEffect(() => {
-        const token = localStorage.getItem('authToken');
+        // ALTERADO: de localStorage para sessionStorage
+        const token = sessionStorage.getItem('authToken');
         if (token) {
             try {
                 const decodedToken = jwtDecode(token);
@@ -15,7 +16,6 @@ export default function useAuth() {
                     username: decodedToken.sub,
                     roles: decodedToken.roles || [],
                 };
-                // Verifica se a lista de roles inclui 'ROLE_ADMIN'
                 const isAdmin = user.roles.includes('ROLE_ADMIN');
                 setAuth({ user, isAdmin });
             } catch (error) {

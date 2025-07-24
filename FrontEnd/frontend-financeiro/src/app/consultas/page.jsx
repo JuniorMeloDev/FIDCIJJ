@@ -50,7 +50,7 @@ export default function ConsultasPage() {
     const [estornoInfo, setEstornoInfo] = useState(null);
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
@@ -298,7 +298,7 @@ export default function ConsultasPage() {
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-100 align-middle ${opacidade}`}>{dup.nfCte}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{dup.empresaCedente}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{dup.clienteSacado}</td>
-                                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorBruto)}</td>
+                                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-100 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorBruto)}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-red-400 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorJuros)}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{formatDate(dup.dataVencimento)}</td>
                                                 {isLiquidado && dup.dataLiquidacao && (

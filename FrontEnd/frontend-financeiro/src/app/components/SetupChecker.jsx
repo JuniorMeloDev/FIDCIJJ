@@ -20,7 +20,7 @@ export default function SetupChecker({ children }) {
             
             setStatus(prev => ({...prev, loading: true}));
             try {
-                const token = localStorage.getItem('authToken');
+                const token = sessionStorage.getItem('authToken');
                 const isAuthenticated = !!token;
 
                 const response = await fetch('http://localhost:8080/api/setup/status');
@@ -31,9 +31,9 @@ export default function SetupChecker({ children }) {
                 
                 setStatus({ loading: false, needsSetup: data.needsSetup, isAuthenticated });
 
-                if (data.needsSetup && !pathname.startsWith('/cadastros')) {
-                    router.push('/cadastros/clientes');
-                } else if (!isAuthenticated) {
+                // LÓGICA DE REDIRECIONAMENTO REMOVIDA
+                // O sistema não vai mais forçar o redirecionamento para /cadastros
+                if (!isAuthenticated) {
                     router.push('/login');
                 }
 
@@ -47,20 +47,20 @@ export default function SetupChecker({ children }) {
         checkStatus();
     }, [pathname, router]);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('authToken') : null;
     const isAuthenticated = !!token;
 
     if (isAuthenticated && pathname === '/login') {
-        router.push('/resumo'); // Redireciona para /resumo após login
+        router.push('/resumo');
         return null;
     }
     
     if (status.loading) {
-        return <div className="flex items-center justify-center min-h-screen bg-gray-100">A carregar...</div>;
+        return <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">A carregar...</div>;
     }
     
     if (error) {
-        return <div className="flex items-center justify-center min-h-screen text-red-600 bg-gray-100">{error}</div>;
+        return <div className="flex items-center justify-center min-h-screen text-red-400 bg-gray-900">{error}</div>;
     }
     
     const publicPaths = ['/', '/login', '/register'];
@@ -68,6 +68,7 @@ export default function SetupChecker({ children }) {
         return <>{children}</>;
     }
 
+    // Se precisar de setup e estiver em uma página protegida, mostra a tela de primeiro acesso.
     if (status.needsSetup) {
         if (pathname.startsWith('/cadastros')) {
             return <>{children}</>;

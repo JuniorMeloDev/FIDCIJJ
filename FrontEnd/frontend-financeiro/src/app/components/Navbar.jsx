@@ -17,21 +17,20 @@ export default function Navbar() {
   const pathname = usePathname()
   const profileRef = useRef(null)
 
-  // Decode token and set user
   useEffect(() => {
-    const token = localStorage.getItem('authToken')
+    // ALTERADO: de localStorage para sessionStorage
+    const token = sessionStorage.getItem('authToken')
     if (token) {
       try {
         const { sub: username } = jwtDecode(token)
         setCurrentUser({ username })
       } catch {
-        localStorage.removeItem('authToken')
+        sessionStorage.removeItem('authToken')
         router.push('/login')
       }
     }
   }, [pathname, router])
 
-  // Close profile dropdown on outside click
   useEffect(() => {
     function onClickOutside(e) {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
@@ -43,8 +42,15 @@ export default function Navbar() {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken')
+    // ALTERADO: de localStorage para sessionStorage
+    sessionStorage.removeItem('authToken')
     router.push('/login')
+  }
+
+  // ADICIONADO: Não renderiza a Navbar em páginas públicas
+  const publicPaths = ['/', '/login'];
+  if (publicPaths.includes(pathname)) {
+      return null;
   }
 
   if (!currentUser) return null
@@ -66,13 +72,11 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link href="/resumo" className="flex items-center space-x-2">
             <FaChartLine className="w-6 h-6 text-orange-400" />
             <span className="text-xl font-bold text-white">IJJ FIDC</span>
           </Link>
 
-          {/* Hamburger - mobile */}
           <button
             className="md:hidden text-gray-400 hover:text-white"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -80,7 +84,6 @@ export default function Navbar() {
             {isMenuOpen ? <FaTimes /> : <FaBars />}
           </button>
 
-          {/* Menu links */}
           <div
             className={`${
               isMenuOpen ? 'block' : 'hidden'
@@ -93,7 +96,7 @@ export default function Navbar() {
                 className={`
                   block px-3 py-2 rounded-md text-sm font-medium
                   ${
-                    pathname === href
+                    pathname.startsWith(href)
                       ? 'text-white border-b-2 border-orange-400'
                       : 'text-gray-300 hover:text-orange-400'
                   }
@@ -104,7 +107,6 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Profile */}
           <div className="relative ml-4 flex-shrink-0" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
