@@ -9,13 +9,13 @@ import bordero.demo.domain.entity.*;
 import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.domain.repository.SacadoRepository;
 import bordero.demo.domain.repository.TipoOperacaoRepository;
-import bordero.demo.service.xml.model.Dest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -67,12 +67,12 @@ public class CadastroService {
         cliente.setIe(dto.getIe());
         cliente.setCep(dto.getCep());
 
+        // Lógica para salvar E-mails
         if (cliente.getEmails() == null) {
             cliente.setEmails(new ArrayList<>());
         }
         cliente.getEmails().clear();
         if (dto.getEmails() != null) {
-            // Remove e-mails vazios ou nulos antes de adicionar
             cliente.getEmails().addAll(
                 dto.getEmails().stream()
                    .filter(email -> email != null && !email.trim().isEmpty())
@@ -207,57 +207,10 @@ public class CadastroService {
         tipoOperacao.setDespesasBancarias(dto.getDespesasBancarias());
         tipoOperacao.setDescricao(dto.getDescricao());
     }
-
-    // --- MÉTODOS PARA O PROCESSAMENTO DE XML ---
     
-    @Transactional
-    public Cliente findOrCreateCliente(String nome, String cnpj) {
-        return clienteRepository.findByCnpj(cnpj)
-                .orElseGet(() -> clienteRepository.findByNomeIgnoreCase(nome)
-                        .orElseGet(() -> {
-                            Cliente novoCliente = new Cliente();
-                            novoCliente.setNome(nome);
-                            novoCliente.setCnpj(cnpj);
-                            return clienteRepository.save(novoCliente);
-                        }));
-    }
-
-    @Transactional
-    public Sacado findOrCreateSacado(Dest dest) {
-        String cnpj = dest.getCnpj();
-        String nome = dest.getXNome();
-
-        return sacadoRepository.findByCnpj(cnpj)
-                .orElseGet(() -> sacadoRepository.findByNomeIgnoreCase(nome)
-                        .orElseGet(() -> {
-                            Sacado novoSacado = new Sacado();
-                            novoSacado.setNome(nome);
-                            novoSacado.setCnpj(cnpj);
-                            if (dest.getEnderDest() != null) {
-                                novoSacado.setEndereco(dest.getEnderDest().getXLgr());
-                                novoSacado.setBairro(dest.getEnderDest().getXBairro());
-                                novoSacado.setMunicipio(dest.getEnderDest().getXMun());
-                                novoSacado.setUf(dest.getEnderDest().getUF());
-                                novoSacado.setFone(dest.getEnderDest().getFone());
-                            }
-                            novoSacado.setIe(dest.getIE());
-                            return sacadoRepository.save(novoSacado);
-                        }));
-    }
-
-    @Transactional
-    public void linkClienteSacado(Cliente cliente, Sacado sacado) {
-        if (cliente.getSacados() == null) {
-            cliente.setSacados(new HashSet<>());
-        }
-        if (cliente.getSacados().add(sacado)) {
-            clienteRepository.save(cliente);
-        }
-    }
-
     // --- CONVERSORES PARA DTO ---
 
-    private ClienteDto toClienteDto(Cliente cliente) {
+    public ClienteDto toClienteDto(Cliente cliente) {
         return ClienteDto.builder()
                 .id(cliente.getId())
                 .nome(cliente.getNome())
@@ -272,11 +225,11 @@ public class CadastroService {
                 .cep(cliente.getCep())
                 .contasBancarias(cliente.getContasBancarias() != null ?
                         cliente.getContasBancarias().stream().map(this::toContaBancariaDto).collect(Collectors.toList()) :
-                        new ArrayList<>())
+                        Collections.emptyList())
+                .emails(cliente.getEmails() != null ? new ArrayList<>(cliente.getEmails()) : new ArrayList<>())
                 .sacados(cliente.getSacados() != null ?
                         cliente.getSacados().stream().map(this::toSacadoDto).collect(Collectors.toSet()) :
                         new HashSet<>())
-                .emails(cliente.getEmails())
                 .build();
     }
 
@@ -327,16 +280,16 @@ public class CadastroService {
     }
 
     public List<ClienteDto> buscarClientesPorNome(String nome) {
-    return clienteRepository.findByNomeContainingIgnoreCase(nome)
-            .stream()
-            .map(this::toClienteDto)
-            .collect(Collectors.toList());
-}
+        return clienteRepository.findByNomeContainingIgnoreCase(nome)
+                .stream()
+                .map(this::toClienteDto)
+                .collect(Collectors.toList());
+    }
 
-public List<SacadoDto> buscarSacadosPorNome(String nome) {
-    return sacadoRepository.findByNomeContainingIgnoreCase(nome)
-            .stream()
-            .map(this::toSacadoDto)
-            .collect(Collectors.toList());
-}
+    public List<SacadoDto> buscarSacadosPorNome(String nome) {
+        return sacadoRepository.findByNomeContainingIgnoreCase(nome)
+                .stream()
+                .map(this::toSacadoDto)
+                .collect(Collectors.toList());
+    }
 }

@@ -28,12 +28,6 @@ public class Cliente {
     @Column(name = "ramo_atividade")
     private String ramoDeAtividade;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "cliente_emails", joinColumns = @JoinColumn(name = "cliente_id"))
-    @Column(name = "email")
-    private List<String> emails = new ArrayList<>();
-    
-    // --- NOVOS CAMPOS (iguais ao Sacado) ---
     private String endereco;
     private String bairro;
     private String municipio;
@@ -42,12 +36,10 @@ public class Cliente {
     private String ie;
     private String cep;
 
-    // --- NOVA RELAÇÃO COM CONTAS BANCÁRIAS ---
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<ContaBancaria> contasBancarias;
 
-    // Relação com Sacados (sem alterações)
     @ManyToMany
     @JoinTable(
         name = "cliente_sacado",
@@ -57,4 +49,9 @@ public class Cliente {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Set<Sacado> sacados;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "cliente_emails", joinColumns = @JoinColumn(name = "cliente_id"))
+    @Column(name = "email")
+    private List<String> emails = new ArrayList<>();
 }

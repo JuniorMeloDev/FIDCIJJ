@@ -10,6 +10,7 @@ import java.time.LocalDate;
 public class DuplicataResponseDto {
     private Long id;
     private Long operacaoId;
+    private Long clienteId;
     private LocalDate dataOperacao;
     private String nfCte;
     private String empresaCedente;

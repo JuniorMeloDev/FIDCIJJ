@@ -23,7 +23,7 @@ import java.util.Optional;
 public class CadastroController {
 
     private final CadastroService cadastroService;
-    private final ClienteRepository clienteRepository; 
+    private final ClienteRepository clienteRepository;
 
     // --- Endpoints para Clientes (Cedentes) ---
 
@@ -51,14 +51,6 @@ public class CadastroController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/clientes/emails")
-    public ResponseEntity<List<String>> getEmailsByClienteNome(@RequestParam String nome) {
-        Optional<Cliente> clienteOpt = clienteRepository.findByNomeIgnoreCase(nome);
-        if (clienteOpt.isPresent() && clienteOpt.get().getEmails() != null) {
-            return ResponseEntity.ok(clienteOpt.get().getEmails());
-        }
-        return ResponseEntity.ok(Collections.emptyList());
-    }
 
     // --- Endpoints para Sacados (Devedores) ---
 
@@ -116,10 +108,10 @@ public class CadastroController {
 
     @GetMapping("/contas/master")
     public ResponseEntity<List<ContaBancariaDto>> listarContasDoClienteMaster() {
-        Optional<Cliente> masterOpt = cadastroService.obterClienteMaster(); // Agora chama o método que retorna Optional
+        Optional<Cliente> masterOpt = cadastroService.obterClienteMaster(); 
 
         if (masterOpt.isEmpty()) {
-            return ResponseEntity.ok(Collections.emptyList()); // Retorna lista vazia se não houver cliente
+            return ResponseEntity.ok(Collections.emptyList()); 
         }
 
         Cliente master = masterOpt.get();
@@ -130,12 +122,20 @@ public class CadastroController {
     }
 
     @GetMapping("/clientes/search")
-public ResponseEntity<List<ClienteDto>> buscarClientes(@RequestParam String nome) {
-    return ResponseEntity.ok(cadastroService.buscarClientesPorNome(nome));
-}
+    public ResponseEntity<List<ClienteDto>> buscarClientes(@RequestParam String nome) {
+        return ResponseEntity.ok(cadastroService.buscarClientesPorNome(nome));
+    }
 
-@GetMapping("/sacados/search")
-public ResponseEntity<List<SacadoDto>> buscarSacados(@RequestParam String nome) {
-    return ResponseEntity.ok(cadastroService.buscarSacadosPorNome(nome));
-}
+    @GetMapping("/sacados/search")
+    public ResponseEntity<List<SacadoDto>> buscarSacados(@RequestParam String nome) {
+        return ResponseEntity.ok(cadastroService.buscarSacadosPorNome(nome));
+    }
+    
+    // NOVO ENDPOINT DE BUSCA DE E-MAILS POR ID
+    @GetMapping("/clientes/{id}/emails")
+    public ResponseEntity<List<String>> getEmailsByClienteId(@PathVariable Long id) {
+        return clienteRepository.findById(id)
+                .map(cliente -> ResponseEntity.ok(cliente.getEmails()))
+                .orElse(ResponseEntity.ok(Collections.emptyList()));
+    }
 }

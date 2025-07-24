@@ -2,21 +2,39 @@
 
 import { useState, useEffect } from 'react';
 
-export default function ConfirmEmailModal({ isOpen, onClose, onSend, isSending, tipoOperacao }) {
+const API_URL = 'http://localhost:8080/api';
+
+export default function EmailModal({ isOpen, onClose, onSend, isSending, clienteId }) {
     const [recipients, setRecipients] = useState([]);
     const [newEmail, setNewEmail] = useState('');
-
-    const predefinidos = {
-        'IJJ': ['eliane.rolim@exemplo.com', 'financeiro@exemplo.com', 'joao.pinto@exemplo.com'],
-        'IJJ_TRANSREC': ['eliane.rolim@exemplo.com', 'financeiro@exemplo.com', 'joao.pinto@exemplo.com'],
-        'A_VISTA': []
+    
+    const getAuthHeader = () => {
+        const token = localStorage.getItem('authToken');
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
     useEffect(() => {
-        if (isOpen) {
-            setRecipients(predefinidos[tipoOperacao] || []);
-        }
-    }, [isOpen, tipoOperacao]);
+        const fetchClientRecipients = async () => {
+            // Limpa a lista anterior sempre que o modal abre
+            setRecipients([]); 
+
+            if (isOpen && clienteId) {
+                try {
+                    // Busca os e-mails do cliente usando o ID dele
+                    const response = await fetch(`${API_URL}/cadastros/clientes/${clienteId}/emails`, { headers: getAuthHeader() });
+                    if (response.ok) {
+                        const clientEmails = await response.json();
+                        setRecipients(clientEmails || []);
+                    }
+                } catch (error) {
+                    console.error("Falha ao buscar e-mails do cliente:", error);
+                    setRecipients([]);
+                }
+            }
+        };
+
+        fetchClientRecipients();
+    }, [isOpen, clienteId]); // Reage à abertura do modal e à mudança do clienteId
 
     if (!isOpen) return null;
 
@@ -48,7 +66,7 @@ export default function ConfirmEmailModal({ isOpen, onClose, onSend, isSending, 
                 <div className="bg-gray-700 p-4 rounded-md">
                     <label className="block text-sm font-medium text-gray-200">Destinatários</label>
                     
-                    <div className="mt-2 flex flex-wrap gap-2 mb-4">
+                    <div className="mt-2 flex flex-wrap gap-2 mb-4 min-h-[40px]">
                         {recipients.map(email => (
                             <span key={email} className="flex items-center gap-2 bg-orange-500 text-white text-sm font-medium px-2.5 py-0.5 rounded-full">
                                 {email}
@@ -63,7 +81,7 @@ export default function ConfirmEmailModal({ isOpen, onClose, onSend, isSending, 
                             value={newEmail}
                             onChange={(e) => setNewEmail(e.target.value)}
                             placeholder="Adicionar outro e-mail"
-                            className="flex-grow bg-gray-600 border-gray-500 rounded-md shadow-sm text-white"
+                            className="flex-grow bg-gray-600 border-gray-500 rounded-md shadow-sm p-2 text-white"
                         />
                         <button type="button" onClick={handleAddEmail} className="bg-gray-600 text-gray-100 font-semibold py-2 px-4 rounded-md hover:bg-gray-500 transition">
                             Adicionar
@@ -76,7 +94,7 @@ export default function ConfirmEmailModal({ isOpen, onClose, onSend, isSending, 
                         Não, Obrigado
                     </button>
                     <button onClick={handleSend} disabled={isSending || recipients.length === 0} className="bg-green-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600 transition disabled:opacity-50">
-                        {isSending ? 'A enviar...' : 'Sim, Enviar E-mail'}
+                        {isSending ? 'Enviando...' : 'Sim, Enviar E-mail'}
                     </button>
                 </div>
             </div>

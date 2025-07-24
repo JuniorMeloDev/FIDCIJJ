@@ -21,5 +21,5 @@ public class ClienteDto {
     private List<ContaBancariaDto> contasBancarias;
     private Set<SacadoDto> sacados;
     private String ramoDeAtividade;
-    private List<String> emails;
+    private List<String> emails; 
 }

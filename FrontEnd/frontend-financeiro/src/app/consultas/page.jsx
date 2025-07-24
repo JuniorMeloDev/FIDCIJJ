@@ -6,7 +6,7 @@ import Notification from '@/app/components/Notification';
 import LiquidacaoModal from '@/app/components/LiquidacaoModal';
 import ConfirmacaoEstornoModal from '@/app/components/ConfirmacaoEstornoModal';
 import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
-import ConfirmEmailModal from '@/app/components/EmailModal';
+import EmailModal from '@/app/components/EmailModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas'; 
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
@@ -31,7 +31,6 @@ export default function ConsultasPage() {
 
     const [sortConfig, setSortConfig] = useState({ key: 'dataOperacao', direction: 'DESC' });
     
-    // Novo estado para o menu de contexto (botão direito)
     const [contextMenu, setContextMenu] = useState({
         visible: false,
         x: 0,
@@ -109,7 +108,6 @@ export default function ConsultasPage() {
         return () => { clearTimeout(handler); };
     }, [filters, sortConfig]);
 
-    // Efeito para fechar o menu de contexto ao clicar em qualquer lugar
     useEffect(() => {
         const handleClick = () => setContextMenu({ ...contextMenu, visible: false });
         document.addEventListener('click', handleClick);
@@ -170,15 +168,9 @@ export default function ConsultasPage() {
         return <FaSortDown />;
     };
     
-    // Função que abre o menu de contexto
     const handleContextMenu = (event, item) => {
         event.preventDefault();
-        setContextMenu({
-            visible: true,
-            x: event.pageX,
-            y: event.pageY,
-            selectedItem: item,
-        });
+        setContextMenu({ visible: true, x: event.pageX, y: event.pageY, selectedItem: item });
     };
 
     const showNotification = (message, type) => { setNotification({ message, type }); setTimeout(() => setNotification({ message: '', type: '' }), 5000); };
@@ -204,9 +196,48 @@ export default function ConsultasPage() {
     };
     const handleEstornar = () => { if (!contextMenu.selectedItem) return; setEstornoInfo({ id: contextMenu.selectedItem.id }); };
     const confirmarEstorno = async () => { if (!estornoInfo) return; setEstornandoId(estornoInfo.id); try { const response = await fetch(`${API_URL}/duplicatas/${estornoInfo.id}/estornar`, { method: 'POST', headers: getAuthHeader() }); if (!response.ok) { const errorData = await response.text(); throw new Error(errorData || 'Falha ao estornar a liquidação.'); } showNotification('Liquidação estornada com sucesso!', 'success'); fetchDuplicatas(filters, sortConfig); } catch (err) { showNotification(err.message, 'error'); } finally { setEstornandoId(null); setEstornoInfo(null); } };
-    const handleAbrirEmailModal = () => { if (!contextMenu.selectedItem) return; setOperacaoParaEmail({ id: contextMenu.selectedItem.operacaoId, tipoOperacao: contextMenu.selectedItem.tipoOperacaoNome }); setIsEmailModalOpen(true); };
-    const handleSendEmail = async (destinatarios) => { if (!operacaoParaEmail) return; setIsSendingEmail(true); try { const response = await fetch(`${API_URL}/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify({ destinatarios }), }); if (!response.ok) throw new Error("Falha ao enviar o e-mail."); showNotification("E-mail(s) enviado(s) com sucesso!", "success"); } catch (err) { showNotification(err.message, "error"); } finally { setIsSendingEmail(false); setIsEmailModalOpen(false); } };
-    const handleGeneratePdf = async () => { if (!contextMenu.selectedItem) return; const operacaoId = contextMenu.selectedItem.operacaoId; if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; } setPdfLoading(operacaoId); try { const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`, { headers: getAuthHeader() }); if (!response.ok) throw new Error('Não foi possível gerar o PDF.'); const contentDisposition = response.headers.get('content-disposition'); let filename = `bordero-${operacaoId}.pdf`; if (contentDisposition) { const filenameMatch = contentDisposition.match(/filename="([^"]+)"/); if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); } } const blob = await response.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); } catch (err) { alert(err.message); } finally { setPdfLoading(null); } };
+    const handleAbrirEmailModal = () => {
+        if (!contextMenu.selectedItem) return;
+        setOperacaoParaEmail({ id: contextMenu.selectedItem.operacaoId, clienteId: contextMenu.selectedItem.clienteId });
+        setIsEmailModalOpen(true);
+    };
+    const handleSendEmail = async (destinatarios) => {
+        if (!operacaoParaEmail) return;
+        setIsSendingEmail(true);
+        try {
+            const response = await fetch(`${API_URL}/operacoes/${operacaoParaEmail.id}/enviar-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, body: JSON.stringify({ destinatarios }) });
+            if (!response.ok) throw new Error("Falha ao enviar o e-mail.");
+            showNotification("E-mail(s) enviado(s) com sucesso!", "success");
+        } catch (err) {
+            showNotification(err.message, "error");
+        } finally {
+            setIsSendingEmail(false);
+            setIsEmailModalOpen(false);
+        }
+    };
+    const handleGeneratePdf = async () => {
+        if (!contextMenu.selectedItem) return;
+        const operacaoId = contextMenu.selectedItem.operacaoId;
+        if (!operacaoId) { alert("Esta duplicata não está associada a uma operação para gerar PDF."); return; }
+        setPdfLoading(operacaoId);
+        try {
+            const response = await fetch(`${API_URL}/operacoes/${operacaoId}/pdf`, { headers: getAuthHeader() });
+            if (!response.ok) throw new Error('Não foi possível gerar o PDF.');
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = `bordero-${operacaoId}.pdf`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+                if (filenameMatch && filenameMatch.length > 1) { filename = filenameMatch[1].replace(/[^a-zA-Z0-9.,\s-]/g, '').trim(); }
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setPdfLoading(null);
+        }
+    };
 
     const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
     const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
@@ -221,7 +252,7 @@ export default function ConsultasPage() {
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             <ConfirmacaoEstornoModal isOpen={!!estornoInfo} onClose={() => setEstornoInfo(null)} onConfirm={confirmarEstorno} title="Confirmar Estorno" message="Tem a certeza que deseja estornar esta liquidação? A movimentação de caixa correspondente (se existir) será excluída." />
             <LiquidacaoModal isOpen={isLiquidarModalOpen} onClose={() => setIsLiquidarModalOpen(false)} onConfirm={handleConfirmarLiquidacao} duplicata={duplicataParaLiquidar} contasMaster={contasMaster} />
-            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSend={handleSendEmail} isSending={isSendingEmail} tipoOperacao={operacaoParaEmail?.tipoOperacao} />
+            <EmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSend={handleSendEmail} isSending={isSendingEmail} clienteId={operacaoParaEmail?.clienteId} />
 
             <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
                 <motion.header 
@@ -248,52 +279,31 @@ export default function ConsultasPage() {
                             <table className="min-w-full divide-y divide-gray-700">
                                <thead className="bg-gray-700">
                                     <tr>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">
-                                            <button onClick={() => handleSort('dataOperacao')} className="flex items-center gap-1">Data Op. {getSortIcon('dataOperacao')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase min-w-[120px]">
-                                            <button onClick={() => handleSort('nfCte')} className="flex items-center gap-1">NF/CT-e {getSortIcon('nfCte')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">
-                                            <button onClick={() => handleSort('operacao.cliente.nome')} className="flex items-center gap-1">Cedente {getSortIcon('operacao.cliente.nome')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">
-                                            <button onClick={() => handleSort('clienteSacado')} className="flex items-center gap-1">Sacado {getSortIcon('clienteSacado')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">
-                                            <button onClick={() => handleSort('valorBruto')} className="flex items-center gap-1 float-right">Valor Bruto {getSortIcon('valorBruto')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase">
-                                            <button onClick={() => handleSort('valorJuros')} className="flex items-center gap-1 float-right">Juros {getSortIcon('valorJuros')}</button>
-                                        </th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase">
-                                             <button onClick={() => handleSort('dataVencimento')} className="flex items-center gap-1">Data Venc. {getSortIcon('dataVencimento')}</button>
-                                        </th>
-                                        {/* Coluna Ações removida */}
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataOperacao')} className="flex items-center gap-1">Data Op. {getSortIcon('dataOperacao')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase min-w-[120px]"><button onClick={() => handleSort('nfCte')} className="flex items-center gap-1">NF/CT-e {getSortIcon('nfCte')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('operacao.cliente.nome')} className="flex items-center gap-1">Cedente {getSortIcon('operacao.cliente.nome')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('clienteSacado')} className="flex items-center gap-1">Sacado {getSortIcon('clienteSacado')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorBruto')} className="flex items-center gap-1 float-right">Valor Bruto {getSortIcon('valorBruto')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorJuros')} className="flex items-center gap-1 float-right">Juros {getSortIcon('valorJuros')}</button></th>
+                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataVencimento')} className="flex items-center gap-1">Data Venc. {getSortIcon('dataVencimento')}</button></th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-gray-800 divide-y divide-gray-700">
                                     {currentItems.map((dup) => {
                                         const isLiquidado = dup.statusRecebimento === 'Recebido';
                                         const opacidade = isLiquidado ? 'opacity-50' : '';
-
                                         return (
-                                            <tr key={dup.id} 
-                                                onContextMenu={(e) => handleContextMenu(e, dup)} 
-                                                className={`group relative hover:bg-gray-700 cursor-pointer`}>
+                                            <tr key={dup.id} onContextMenu={(e) => handleContextMenu(e, dup)} className={`group relative hover:bg-gray-700 cursor-pointer`}>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{formatDate(dup.dataOperacao)}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-100 align-middle ${opacidade}`}>{dup.nfCte}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{dup.empresaCedente}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{dup.clienteSacado}</td>
-                                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-100 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorBruto)}</td>
+                                                <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorBruto)}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-red-400 text-right align-middle ${opacidade}`}>{formatBRLNumber(dup.valorJuros)}</td>
                                                 <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-400 align-middle ${opacidade}`}>{formatDate(dup.dataVencimento)}</td>
-                                                
                                                 {isLiquidado && dup.dataLiquidacao && (
                                                     <td className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black bg-opacity-10 pointer-events-none">
-                                                        <span className="bg-gray-900 text-white text-xs font-bold py-1 px-3 rounded-md">
-                                                            Baixada em {formatDate(dup.dataLiquidacao)} na conta {dup.contaLiquidacao}
-                                                        </span>
+                                                        <span className="bg-gray-900 text-white text-xs font-bold py-1 px-3 rounded-md">Baixada em {formatDate(dup.dataLiquidacao)} na conta {dup.contaLiquidacao}</span>
                                                     </td>
                                                 )}
                                             </tr>
@@ -307,13 +317,8 @@ export default function ConsultasPage() {
                 </div>
             </main>
 
-            {/* Menu de Contexto Renderizado aqui */}
             {contextMenu.visible && (
-                <div
-                    ref={menuRef}
-                    style={{ top: contextMenu.y, left: contextMenu.x }}
-                    className="absolute origin-top-right w-48 rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 z-20"
-                >
+                <div ref={menuRef} style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute origin-top-right w-48 rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 z-20">
                     <div className="py-1" onClick={(e) => e.stopPropagation()}>
                         {contextMenu.selectedItem?.statusRecebimento === 'Recebido' ? (
                             <a href="#" onClick={(e) => { e.preventDefault(); handleEstornar(); }} className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-600">Estornar Liquidação</a>

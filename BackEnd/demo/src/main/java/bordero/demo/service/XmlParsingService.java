@@ -7,6 +7,7 @@ import bordero.demo.domain.entity.Cliente;
 import bordero.demo.domain.entity.Sacado;
 import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.domain.repository.SacadoRepository;
+import bordero.demo.service.xml.model.NFe;
 import bordero.demo.service.xml.model.NfeProc;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
@@ -27,33 +28,45 @@ public class XmlParsingService {
 
     private final ClienteRepository clienteRepository;
     private final SacadoRepository sacadoRepository;
+    private final CadastroService cadastroService;
 
     public NfeXmlDataDto parseNfe(MultipartFile file) throws Exception {
         try (InputStream inputStream = file.getInputStream()) {
-            JAXBContext jaxbContext = JAXBContext.newInstance(NfeProc.class);
+            JAXBContext jaxbContext = JAXBContext.newInstance(NfeProc.class, NFe.class);
             Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
             
-            NfeProc nfeProc = (NfeProc) jaxbUnmarshaller.unmarshal(inputStream);
+            Object unmarshalledObject = jaxbUnmarshaller.unmarshal(inputStream);
 
-            var infNfe = nfeProc.getNFe().getInfNFe();
+            NFe nfe;
+            if (unmarshalledObject instanceof NfeProc) {
+                nfe = ((NfeProc) unmarshalledObject).getNFe();
+            } else if (unmarshalledObject instanceof NFe) {
+                nfe = (NFe) unmarshalledObject;
+            } else {
+                throw new IllegalArgumentException("Estrutura do XML de NF-e inválida ou não suportada.");
+            }
+
+            var infNfe = nfe.getInfNFe();
             var emit = infNfe.getEmit();
             var dest = infNfe.getDest();
 
-            // Verifica se o Cliente (Emitente) já existe
             Optional<Cliente> clienteOpt = clienteRepository.findByCnpj(emit.getCnpj());
             boolean emitenteExiste = clienteOpt.isPresent();
-
-            // Monta o DTO do emitente com os dados do XML
-            ClienteDto emitenteDto = ClienteDto.builder()
-                .nome(emit.getXNome())
-                .cnpj(emit.getCnpj())
-                .build();
             
-            // Verifica se o Sacado (Destinatário) já existe
+            ClienteDto emitenteDto;
+            if (emitenteExiste) {
+                // Se o cliente existe, busca todos os dados dele, incluindo o ID
+                emitenteDto = cadastroService.toClienteDto(clienteOpt.get());
+            } else {
+                emitenteDto = ClienteDto.builder()
+                    .nome(emit.getXNome())
+                    .cnpj(emit.getCnpj())
+                    .build();
+            }
+            
             Optional<Sacado> sacadoOpt = sacadoRepository.findByCnpj(dest.getCnpj());
             boolean sacadoExiste = sacadoOpt.isPresent();
 
-            // Monta o DTO do sacado com os dados do XML
             SacadoDto sacadoDto = SacadoDto.builder()
                 .nome(dest.getXNome())
                 .cnpj(dest.getCnpj())
@@ -65,7 +78,6 @@ public class XmlParsingService {
                 .municipio(dest.getEnderDest() != null ? dest.getEnderDest().getXMun() : null)
                 .uf(dest.getEnderDest() != null ? dest.getEnderDest().getUF() : null)
                 .build();
-
 
             return NfeXmlDataDto.builder()
                 .numeroNf(infNfe.getIde().getNNF())

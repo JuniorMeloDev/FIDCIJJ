@@ -19,6 +19,7 @@ export default function OperacaoBorderoPage() {
     const [dataOperacao, setDataOperacao] = useState(new Date().toISOString().split('T')[0]);
     const [tipoOperacaoId, setTipoOperacaoId] = useState('');
     const [empresaCedente, setEmpresaCedente] = useState('');
+    const [empresaCedenteId, setEmpresaCedenteId] = useState(null);
     const [novaNf, setNovaNf] = useState({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
     const [notasFiscais, setNotasFiscais] = useState([]);
     const [descontos, setDescontos] = useState([]);
@@ -152,10 +153,12 @@ export default function OperacaoBorderoPage() {
             peso: '',
         });
         setEmpresaCedente(data.emitente.nome || '');
+        setEmpresaCedenteId(data.emitente.id || null);
         showNotification("Dados do XML preenchidos com sucesso!", "success");
         setXmlDataPendente(null);
     };
 
+    // CORRIGIDO: Função agora armazena o ID do cliente recém-criado
     const handleSaveNovoCliente = async (id, data) => {
         try {
             const response = await fetch(`${API_URL}/cadastros/clientes`, { 
@@ -164,19 +167,30 @@ export default function OperacaoBorderoPage() {
                 body: JSON.stringify(data) 
             });
             if (!response.ok) throw new Error('Falha ao criar novo cliente.');
+            
+            const novoClienteCriado = await response.json();
+            
+            const updatedXmlData = {
+                ...xmlDataPendente,
+                emitente: { ...xmlDataPendente.emitente, id: novoClienteCriado.id },
+                emitenteExiste: true
+            };
+            setXmlDataPendente(updatedXmlData);
+            
             showNotification('Cliente criado com sucesso!', 'success');
             setClienteParaCriar(null);
 
-            if (xmlDataPendente && !xmlDataPendente.sacadoExiste) {
-                setSacadoParaCriar(xmlDataPendente.sacado);
-            } else if (xmlDataPendente) {
-                preencherFormularioComXml(xmlDataPendente);
+            if (!updatedXmlData.sacadoExiste) {
+                setSacadoParaCriar(updatedXmlData.sacado);
+            } else {
+                preencherFormularioComXml(updatedXmlData);
             }
         } catch (err) {
             showNotification(err.message, 'error');
         }
     };
     
+    // CORRIGIDO: Função também atualiza o estado pendente, por consistência
     const handleSaveNovoSacado = async (id, data) => {
         try {
             const response = await fetch(`${API_URL}/cadastros/sacados`, { 
@@ -185,17 +199,34 @@ export default function OperacaoBorderoPage() {
                 body: JSON.stringify(data) 
             });
             if (!response.ok) throw new Error('Falha ao criar novo sacado.');
+
+            const novoSacadoCriado = await response.json();
+            
+            const updatedXmlData = {
+                ...xmlDataPendente,
+                sacado: { ...xmlDataPendente.sacado, id: novoSacadoCriado.id },
+                sacadoExiste: true
+            };
+
             showNotification('Sacado criado com sucesso!', 'success');
             setSacadoParaCriar(null);
-            if (xmlDataPendente) {
-                preencherFormularioComXml(xmlDataPendente);
-            }
+            preencherFormularioComXml(updatedXmlData);
+            
         } catch (err) {
             showNotification(err.message, 'error');
         }
     };
 
-    const handleSelectCedente = (cliente) => { setEmpresaCedente(cliente.nome); };
+    const handleSelectCedente = (cliente) => {
+        setEmpresaCedente(cliente.nome);
+        setEmpresaCedenteId(cliente.id);
+    };
+    
+    const handleCedenteChange = (newName) => {
+        setEmpresaCedente(newName);
+        setEmpresaCedenteId(null);
+    };
+
     const handleSelectSacado = (sacado) => {
         setCondicoesSacado(sacado.condicoesPagamento || []);
         if (sacado.condicoesPagamento && sacado.condicoesPagamento.length > 0) {
@@ -244,9 +275,16 @@ export default function OperacaoBorderoPage() {
             showNotification('Adicione ao menos uma NF e selecione uma conta bancária.', 'error');
             return;
         }
+        if (!empresaCedenteId) {
+            showNotification('Selecione um cedente válido da lista antes de salvar.', 'error');
+            return;
+        }
         setIsSaving(true);
         const payload = {
-            dataOperacao, tipoOperacaoId: parseInt(tipoOperacaoId), empresaCedente, contaBancariaId: parseInt(contaBancariaId),
+            dataOperacao,
+            tipoOperacaoId: parseInt(tipoOperacaoId),
+            clienteId: empresaCedenteId,
+            contaBancariaId: parseInt(contaBancariaId),
             descontos: todosOsDescontos.map(({ id, ...rest }) => rest),
             notasFiscais: notasFiscais.map(nf => ({ ...nf, jurosCalculado: undefined, valorLiquidoCalculado: undefined, peso: parseFloat(String(nf.peso).replace(',', '.')) || null }))
         };
@@ -255,7 +293,7 @@ export default function OperacaoBorderoPage() {
             if (!response.ok) throw new Error(await response.text() || 'Ocorreu um erro ao guardar a operação.');
             const operacaoId = await response.json();
             const tipoOp = tiposOperacao.find(op => op.id === parseInt(tipoOperacaoId));
-            setSavedOperacaoInfo({ id: operacaoId, tipoOperacao: tipoOp?.nome, empresaCedente });
+            setSavedOperacaoInfo({ id: operacaoId, tipoOperacao: tipoOp?.nome, clienteId: empresaCedenteId });
             showNotification(`Operação salva com sucesso!`, 'success');
             setShowEmailPrompt(true);
         } catch (error) {
@@ -285,6 +323,7 @@ export default function OperacaoBorderoPage() {
         setDataOperacao(new Date().toISOString().split('T')[0]);
         setTipoOperacaoId('');
         setEmpresaCedente('');
+        setEmpresaCedenteId(null);
         setNotasFiscais([]);
         setDescontos([]);
         setNovaNf({ nfCte: '', dataNf: '', valorNf: '', clienteSacado: '', parcelas: '1', prazos: '', peso: '' });
@@ -330,7 +369,7 @@ export default function OperacaoBorderoPage() {
             
             <ConfirmacaoModal isOpen={showEmailPrompt} onClose={() => { setShowEmailPrompt(false); handleLimparTudo(false); }} onConfirm={() => { setShowEmailPrompt(false); setIsEmailModalOpen(true); }} title="Envio de E-mail" message="Deseja enviar o Borderô por email?" />
             
-            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => { setIsEmailModalOpen(false); handleLimparTudo(false); }} onSend={handleSendEmail} isSending={isSendingEmail} tipoOperacao={savedOperacaoInfo?.tipoOperacao} clienteNome={savedOperacaoInfo?.empresaCedente} />
+            <ConfirmEmailModal isOpen={isEmailModalOpen} onClose={() => { setIsEmailModalOpen(false); handleLimparTudo(false); }} onSend={handleSendEmail} isSending={isSendingEmail} clienteId={savedOperacaoInfo?.clienteId} />
 
             <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
                 <motion.header className="mb-4 flex justify-between items-center border-b-2 border-orange-500 pb-4" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
@@ -344,7 +383,7 @@ export default function OperacaoBorderoPage() {
                     </div>
                 </motion.header>
 
-                <OperacaoHeader dataOperacao={dataOperacao} setDataOperacao={setDataOperacao} tipoOperacaoId={tipoOperacaoId} setTipoOperacaoId={setTipoOperacaoId} tiposOperacao={tiposOperacao} empresaCedente={empresaCedente} setEmpresaCedente={setEmpresaCedente} onSelectCedente={handleSelectCedente} fetchClientes={fetchClientes} />
+                <OperacaoHeader dataOperacao={dataOperacao} setDataOperacao={setDataOperacao} tipoOperacaoId={tipoOperacaoId} setTipoOperacaoId={setTipoOperacaoId} tiposOperacao={tiposOperacao} empresaCedente={empresaCedente} onCedenteChange={handleCedenteChange} onSelectCedente={handleSelectCedente} fetchClientes={fetchClientes} />
                 <AdicionarNotaFiscalForm novaNf={novaNf} handleInputChange={handleInputChange} handleAddNotaFiscal={handleAddNotaFiscal} isLoading={isLoading} onSelectSacado={handleSelectSacado} fetchSacados={fetchSacados} condicoesSacado={condicoesSacado} setNovaNf={setNovaNf} />
                 <OperacaoDetalhes notasFiscais={notasFiscais} descontos={todosOsDescontos} totais={totais} handleSalvarOperacao={handleSalvarOperacao} handleLimparTudo={handleLimparTudo} isSaving={isSaving} onAddDescontoClick={() => setIsDescontoModalOpen(true)} onRemoveDesconto={handleRemoveDesconto} contasBancarias={contasBancarias} contaBancariaId={contaBancariaId} setContaBancariaId={setContaBancariaId} />
             </main>

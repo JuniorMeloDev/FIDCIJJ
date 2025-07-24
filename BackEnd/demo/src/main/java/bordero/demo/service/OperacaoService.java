@@ -38,13 +38,13 @@ public class OperacaoService {
 
     @Transactional
     public Long salvarOperacao(OperacaoRequestDto operacaoDto) {
-        log.info("Iniciando salvamento da operação para a empresa: {}", operacaoDto.getEmpresaCedente());
+        log.info("Iniciando salvamento da operação para o cliente ID: {}", operacaoDto.getClienteId());
 
         TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(operacaoDto.getTipoOperacaoId())
                 .orElseThrow(() -> new RuntimeException("Tipo de Operação com ID " + operacaoDto.getTipoOperacaoId() + " não encontrado."));
 
-        Cliente cliente = clienteRepository.findByNomeIgnoreCase(operacaoDto.getEmpresaCedente())
-                .orElseThrow(() -> new RuntimeException("Cliente cedente não encontrado: " + operacaoDto.getEmpresaCedente()));
+        Cliente cliente = clienteRepository.findById(operacaoDto.getClienteId())
+                .orElseThrow(() -> new RuntimeException("Cliente cedente com ID " + operacaoDto.getClienteId() + " não encontrado."));
 
         BigDecimal valorTotalOperacao = BigDecimal.ZERO;
         BigDecimal jurosTotalOperacao = BigDecimal.ZERO;
@@ -72,7 +72,6 @@ public class OperacaoService {
             }
         }
 
-        // O backend agora confia totalmente nos descontos enviados pelo frontend
         BigDecimal totalDescontosAdicionais = operacaoDto.getDescontos() != null ? operacaoDto.getDescontos().stream()
                 .map(DescontoDto::getValor).reduce(BigDecimal.ZERO, BigDecimal::add) : BigDecimal.ZERO;
         
@@ -97,10 +96,8 @@ public class OperacaoService {
 
         duplicatasParaSalvar.forEach(dup -> dup.setOperacao(operacaoSalva));
         duplicataRepository.saveAll(duplicatasParaSalvar);
-
         operacaoSalva.setDuplicatas(duplicatasParaSalvar);
 
-        // Salva a lista de descontos que foi enviada pelo frontend
         if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
             List<Desconto> descontosList = operacaoDto.getDescontos().stream().map(dto -> {
                 Desconto desconto = new Desconto();
@@ -116,7 +113,7 @@ public class OperacaoService {
 
         return operacaoSalva.getId();
     }
-
+    
     @Transactional(readOnly = true)
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(request.getTipoOperacaoId())
@@ -226,55 +223,43 @@ public class OperacaoService {
         movimentacao.setDataMovimento(operacao.getDataOperacao());
         movimentacao.setCategoria("Pagamento de Borderô");
         movimentacao.setValor(operacao.getValorLiquido().negate());
-
         String tipoDocumento = "NF";
         if (operacao.getCliente() != null && "Transportes".equalsIgnoreCase(operacao.getCliente().getRamoDeAtividade())) {
             tipoDocumento = "Cte";
         }
-
         String numeros = operacao.getDuplicatas().stream()
                 .map(Duplicata::getNfCte)
                 .filter(Objects::nonNull)
                 .map(nf -> nf.contains(".") ? nf.split("\\.")[0] : nf)
                 .distinct()
                 .collect(Collectors.joining(", "));
-
         movimentacao.setDescricao("Borderô " + tipoDocumento + " " + numeros);
-
         ContaBancaria conta = contaBancariaRepository.findById(contaBancariaId)
                 .orElseThrow(() -> new RuntimeException("Conta bancária não encontrada com ID: " + contaBancariaId));
-
         movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
         movimentacao.setEmpresaAssociada(operacao.getCliente().getNome());
         movimentacao.setOperacao(operacao);
-
         movimentacaoCaixaRepository.save(movimentacao);
     }
     
     @Transactional
     public DuplicataResponseDto liquidarDuplicata(Long duplicataId, LocalDate dataLiquidacao, BigDecimal jurosMora, long contaBancariaId ) {
         log.info("Iniciando liquidação da duplicata ID: {} com data {} e juros/mora de {}", duplicataId, dataLiquidacao, jurosMora);
-
         Duplicata duplicata = duplicataRepository.findById(duplicataId)
                 .orElseThrow(() -> new RuntimeException("Duplicata com ID " + duplicataId + " não encontrada."));
-
         if (!"Pendente".equalsIgnoreCase(duplicata.getStatusRecebimento())) {
             log.warn("Duplicata ID: {} já está com o estado {}.", duplicataId, duplicata.getStatusRecebimento());
             return converterParaDto(duplicata);
         }
-
         if (dataLiquidacao != null) {
             BigDecimal valorFinalRecebimento = duplicata.getValorBruto();
-
             if (jurosMora != null && jurosMora.compareTo(BigDecimal.ZERO) > 0) {
                 valorFinalRecebimento = valorFinalRecebimento.add(jurosMora);
             }
-
             MovimentacaoCaixa movimentacao = new MovimentacaoCaixa();
             movimentacao.setDataMovimento(dataLiquidacao);
             movimentacao.setValor(valorFinalRecebimento);
             movimentacao.setCategoria("Recebimento");
-            
             String tipoDocumento = "NF";
             if (duplicata.getOperacao() != null && duplicata.getOperacao().getCliente() != null) {
                 if ("Transportes".equalsIgnoreCase(duplicata.getOperacao().getCliente().getRamoDeAtividade())) {
@@ -284,38 +269,30 @@ public class OperacaoService {
             movimentacao.setDescricao("Recebimento " + tipoDocumento + " " + duplicata.getNfCte());
             ContaBancaria conta = contaBancariaRepository.findById(contaBancariaId)
             .orElseThrow(() -> new RuntimeException("Conta bancária não encontrada com ID: " + contaBancariaId));
-        
             movimentacao.setContaBancaria(conta.getBanco() + " - " + conta.getAgencia() + "/" + conta.getContaCorrente());
             movimentacao.setEmpresaAssociada(duplicata.getOperacao().getCliente().getNome());
-
             MovimentacaoCaixa movimentacaoSalva = movimentacaoCaixaRepository.save(movimentacao);
             duplicata.setLiquidacaoMovId(movimentacaoSalva.getId());
             log.info("Movimentação de caixa ID: {} criada para o recebimento da duplicata ID: {}.", movimentacaoSalva.getId(), duplicataId);
         }
-
         duplicata.setStatusRecebimento("Recebido");
         Duplicata duplicataSalva = duplicataRepository.save(duplicata);
         log.info("Duplicata ID: {} atualizada para 'Recebido'.", duplicataId);
-        
         return converterParaDto(duplicataSalva);
     }
     
     @Transactional
     public void estornarLiquidacao(Long duplicataId) {
         log.info("Iniciando estorno da liquidação para a duplicata ID: {}", duplicataId);
-        
         Duplicata duplicata = duplicataRepository.findById(duplicataId)
                 .orElseThrow(() -> new RuntimeException("Duplicata com ID " + duplicataId + " não encontrada."));
-
         if (!"Recebido".equalsIgnoreCase(duplicata.getStatusRecebimento())) {
             throw new IllegalStateException("Apenas duplicatas com estado 'Recebido' podem ser estornadas.");
         }
-
         if (duplicata.getLiquidacaoMovId() != null) {
             movimentacaoCaixaRepository.deleteById(duplicata.getLiquidacaoMovId());
             log.info("Movimentação de caixa ID: {} associada foi excluída.", duplicata.getLiquidacaoMovId());
         }
-
         duplicata.setStatusRecebimento("Pendente");
         duplicata.setLiquidacaoMovId(null);
         duplicataRepository.save(duplicata);
@@ -334,10 +311,8 @@ public class OperacaoService {
             LocalDate dataVencInicio, LocalDate dataVencFim,
             String sacado, String nfCte, BigDecimal valor, String status,
             Long clienteId, Long tipoOperacaoId, String sort, String direction) {
-
         Specification<Duplicata> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
-
             if (dataOpInicio != null) predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(Duplicata_.dataOperacao), dataOpInicio));
             if (dataOpFim != null) predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get(Duplicata_.dataOperacao), dataOpFim));
             if (dataVencInicio != null) predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get(Duplicata_.dataVencimento), dataVencInicio));
@@ -346,7 +321,6 @@ public class OperacaoService {
             if (nfCte != null && !nfCte.isBlank()) predicates.add(criteriaBuilder.like(root.get(Duplicata_.nfCte), "%" + nfCte + "%"));
             if (valor != null) predicates.add(criteriaBuilder.equal(root.get(Duplicata_.valorBruto), valor));
             if (status != null && !status.isBlank() && !status.equalsIgnoreCase("Todos")) predicates.add(criteriaBuilder.equal(root.get(Duplicata_.statusRecebimento), status));
-            
             if (clienteId != null || tipoOperacaoId != null) {
                 Join<Duplicata, Operacao> operacaoJoin = root.join(Duplicata_.operacao);
                 if (clienteId != null) {
@@ -356,13 +330,10 @@ public class OperacaoService {
                     predicates.add(criteriaBuilder.equal(operacaoJoin.get(Operacao_.tipoOperacao).get("id"), tipoOperacaoId));
                 }
             }
-
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
-
         Sort.Direction sortDirection = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Sort sortOrder = Sort.by(sortDirection, sort);
-
         return duplicataRepository.findAll(spec, sortOrder).stream()
                 .map(this::converterParaDto)
                 .collect(Collectors.toList());
@@ -376,10 +347,14 @@ public class OperacaoService {
         String empresaCedente = (duplicata.getOperacao() != null && duplicata.getOperacao().getCliente() != null)
                                 ? duplicata.getOperacao().getCliente().getNome()
                                 : null;
+        Long clienteId = (duplicata.getOperacao() != null && duplicata.getOperacao().getCliente() != null)
+                                ? duplicata.getOperacao().getCliente().getId()
+                                : null;
         
         DuplicataResponseDto.DuplicataResponseDtoBuilder builder = DuplicataResponseDto.builder()
                 .id(duplicata.getId())
                 .operacaoId(operacaoId)
+                .clienteId(clienteId)
                 .dataOperacao(duplicata.getDataOperacao())
                 .nfCte(duplicata.getNfCte())
                 .empresaCedente(empresaCedente)
