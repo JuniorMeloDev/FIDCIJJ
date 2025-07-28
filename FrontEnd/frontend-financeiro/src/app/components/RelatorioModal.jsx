@@ -16,7 +16,7 @@ export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchCl
     const [format, setFormat] = useState('pdf');
 
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken'); // Usando sessionStorage
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 

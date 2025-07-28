@@ -4,20 +4,21 @@ import { useState, useEffect } from 'react';
 import { formatCnpjCpf, formatTelefone, formatCep } from '@/app/utils/formatters';
 import AutocompleteInput from './AutocompleteInput';
 
-export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onDelete, showNotification }) {
+export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onDelete }) {
     const initialState = {
         nome: '', cnpj: '', ie: '', cep: '', endereco: '', bairro: '', municipio: '', uf: '', fone: '', contasBancarias: [], ramoDeAtividade: '', emails: []
     };
     const [formData, setFormData] = useState(initialState);
     const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
     const [dataFetched, setDataFetched] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [modalError, setModalError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
+            setModalError('');
             if (cliente) { 
-                const initialData = {
-                    ...initialState,
-                    ...cliente,
+                const initialData = { ...initialState, ...cliente,
                     cnpj: cliente.cnpj ? formatCnpjCpf(cliente.cnpj) : '',
                     fone: cliente.fone ? formatTelefone(cliente.fone) : '',
                     cep: cliente.cep ? formatCep(cliente.cep) : '',
@@ -25,7 +26,6 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
                     emails: cliente.emails ? [...cliente.emails] : []
                 };
                 setFormData(initialData);
-
                 if (!cliente.id && initialData.cnpj.replace(/\D/g, '').length === 14) {
                     handleCnpjSearch(initialData.cnpj);
                 } else {
@@ -38,8 +38,6 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
         }
     }, [cliente, isOpen]);
 
-    if (!isOpen) return null;
-
     const handleCnpjSearch = async (cnpjValue) => {
         const cleanCnpj = cnpjValue.replace(/\D/g, '');
         if (cleanCnpj.length !== 14) return;
@@ -47,24 +45,11 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
         try {
             const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
             if (!response.ok) throw new Error('CNPJ não encontrado ou inválido.');
-            
             const data = await response.json();
-            
-            setFormData(prev => ({
-                ...prev,
-                nome: data.razao_social || '',
-                fone: data.ddd_telefone_1 ? formatTelefone(`${data.ddd_telefone_1}${data.telefone_1 || ''}`) : '',
-                cep: data.cep ? formatCep(data.cep) : '',
-                endereco: `${data.logradouro || ''}, ${data.numero || ''}`,
-                bairro: data.bairro || '',
-                municipio: data.municipio || '',
-                uf: data.uf || '',
-                ie: '', 
-            }));
+            setFormData(prev => ({ ...prev, nome: data.razao_social || '', fone: data.ddd_telefone_1 ? formatTelefone(`${data.ddd_telefone_1}${data.telefone_1 || ''}`) : '', cep: data.cep ? formatCep(data.cep) : '', endereco: `${data.logradouro || ''}, ${data.numero || ''}`, bairro: data.bairro || '', municipio: data.municipio || '', uf: data.uf || '', ie: '' }));
             setDataFetched(true);
-
         } catch (error) {
-            if(showNotification) showNotification(error.message, 'error');
+            setModalError(error.message);
             setDataFetched(true); 
         } finally {
             setIsFetchingCnpj(false);
@@ -72,6 +57,7 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
     };
 
     const handleChange = (e) => {
+        setModalError('');
         const { name, value } = e.target;
         let formattedValue = value;
         if (name === 'cnpj') {
@@ -92,10 +78,7 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
     };
 
     const addConta = () => {
-        setFormData(prev => ({
-            ...prev,
-            contasBancarias: [...prev.contasBancarias, { banco: '', agencia: '', contaCorrente: '' }]
-        }));
+        setFormData(prev => ({ ...prev, contasBancarias: [...prev.contasBancarias, { banco: '', agencia: '', contaCorrente: '' }] }));
     };
 
     const removeConta = (index) => {
@@ -111,10 +94,7 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
     };
 
     const addEmail = () => {
-        setFormData(prev => ({
-            ...prev,
-            emails: [...(formData.emails || []), '']
-        }));
+        setFormData(prev => ({ ...prev, emails: [...(formData.emails || []), ''] }));
     };
 
     const removeEmail = (index) => {
@@ -123,28 +103,29 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
         setFormData(prev => ({ ...prev, emails: novosEmails }));
     };
 
-    const handleSave = () => { 
-        const dataToSave = { 
-            ...formData, 
-            cnpj: formData.cnpj.replace(/\D/g, ''), 
-            fone: formData.fone?.replace(/\D/g, ''), 
-            cep: formData.cep?.replace(/\D/g, ''),
-        }; 
-        onSave(cliente?.id, dataToSave); 
+    const handleSave = async () => {
+        setModalError('');
+        setIsSaving(true);
+        const dataToSave = { ...formData, cnpj: formData.cnpj.replace(/\D/g, ''), fone: formData.fone?.replace(/\D/g, ''), cep: formData.cep?.replace(/\D/g, '') };
+        const result = await onSave(cliente?.id, dataToSave);
+        setIsSaving(false);
+        if (!result.success) {
+            setModalError(result.message);
+        }
     };
     
+    if (!isOpen) return null;
     const isEditMode = !!cliente?.id;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
-            <div className="bg-gray-800 text-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-800 text-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-y-auto">
                 <h2 className="text-xl font-bold mb-4">{isEditMode ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h2>
-                
                 <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-300">CNPJ {isFetchingCnpj && <span className="text-xs text-orange-400">(A consultar...)</span>}</label>
-                            <input type="text" name="cnpj" value={formData.cnpj} onChange={handleChange} placeholder="Digite para buscar..." disabled={isEditMode} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-1.5 text-sm"/>
+                            <input type="text" name="cnpj" value={formData.cnpj} onChange={handleChange} placeholder="Digite para buscar..." className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-1.5 text-sm"/>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-300">Nome do Cliente</label>
@@ -208,13 +189,22 @@ export default function EditClienteModal({ isOpen, onClose, cliente, onSave, onD
                         </>
                     )}
                 </div>
+                
+                {modalError && (
+                    <div className="text-center p-2 mt-4 bg-red-900/50 border border-red-500 rounded-md">
+                        <p className="text-sm text-red-300">{modalError}</p>
+                    </div>
+                )}
+
                 <div className="mt-6 flex justify-between border-t border-gray-700 pt-4">
                     <div>
                         {isEditMode && <button onClick={() => onDelete(cliente.id)} className="bg-red-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-700 transition text-sm">Excluir</button>}
                     </div>
                     <div className="flex gap-2">
                         <button type="button" onClick={onClose} className="bg-gray-600 text-gray-100 font-semibold py-2 px-4 rounded-md hover:bg-gray-500 transition text-sm">Cancelar</button>
-                        <button onClick={handleSave} className="bg-orange-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-orange-600 transition text-sm">Salvar</button>
+                        <button onClick={handleSave} disabled={isSaving} className="bg-orange-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-orange-600 transition text-sm">
+                            {isSaving ? 'Salvando...' : 'Salvar'}
+                        </button>
                     </div>
                 </div>
             </div>

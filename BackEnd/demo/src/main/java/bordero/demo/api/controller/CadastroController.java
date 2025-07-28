@@ -9,6 +9,7 @@ import bordero.demo.domain.repository.ClienteRepository;
 import bordero.demo.service.CadastroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException; // Importar a exceção
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,9 +29,14 @@ public class CadastroController {
     // --- Endpoints para Clientes (Cedentes) ---
 
     @PostMapping("/clientes")
-    public ResponseEntity<ClienteDto> criarCliente(@Valid @RequestBody ClienteDto dto) {
-        ClienteDto clienteCriado = cadastroService.criarCliente(dto);
-        return new ResponseEntity<>(clienteCriado, HttpStatus.CREATED);
+    public ResponseEntity<?> criarCliente(@Valid @RequestBody ClienteDto dto) {
+        try {
+            ClienteDto clienteCriado = cadastroService.criarCliente(dto);
+            return new ResponseEntity<>(clienteCriado, HttpStatus.CREATED);
+        } catch (DataIntegrityViolationException e) {
+            // Captura o erro e envia a mensagem amigável
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Já existe um cliente com este CNPJ ou Nome.");
+        }
     }
 
     @GetMapping("/clientes")
@@ -40,9 +46,13 @@ public class CadastroController {
     }
 
     @PutMapping("/clientes/{id}")
-    public ResponseEntity<ClienteDto> atualizarCliente(@PathVariable Long id, @Valid @RequestBody ClienteDto dto) {
-        ClienteDto clienteAtualizado = cadastroService.atualizarCliente(id, dto);
-        return ResponseEntity.ok(clienteAtualizado);
+    public ResponseEntity<?> atualizarCliente(@PathVariable Long id, @Valid @RequestBody ClienteDto dto) {
+        try {
+            ClienteDto clienteAtualizado = cadastroService.atualizarCliente(id, dto);
+            return ResponseEntity.ok(clienteAtualizado);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Já existe um cliente com este CNPJ ou Nome.");
+        }
     }
 
     @DeleteMapping("/clientes/{id}")
@@ -55,9 +65,13 @@ public class CadastroController {
     // --- Endpoints para Sacados (Devedores) ---
 
     @PostMapping("/sacados")
-    public ResponseEntity<SacadoDto> criarSacado(@Valid @RequestBody SacadoDto dto) {
-        SacadoDto sacadoCriado = cadastroService.criarSacado(dto);
-        return new ResponseEntity<>(sacadoCriado, HttpStatus.CREATED);
+    public ResponseEntity<?> criarSacado(@Valid @RequestBody SacadoDto dto) {
+        try {
+            SacadoDto sacadoCriado = cadastroService.criarSacado(dto);
+            return new ResponseEntity<>(sacadoCriado, HttpStatus.CREATED);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Já existe um sacado com este CNPJ.");
+        }
     }
 
     @GetMapping("/sacados")
@@ -67,9 +81,13 @@ public class CadastroController {
     }
 
     @PutMapping("/sacados/{id}")
-    public ResponseEntity<SacadoDto> atualizarSacado(@PathVariable Long id, @Valid @RequestBody SacadoDto dto) {
-        SacadoDto sacadoAtualizado = cadastroService.atualizarSacado(id, dto);
-        return ResponseEntity.ok(sacadoAtualizado);
+    public ResponseEntity<?> atualizarSacado(@PathVariable Long id, @Valid @RequestBody SacadoDto dto) {
+        try {
+            SacadoDto sacadoAtualizado = cadastroService.atualizarSacado(id, dto);
+            return ResponseEntity.ok(sacadoAtualizado);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Já existe um sacado com este CNPJ.");
+        }
     }
 
     @DeleteMapping("/sacados/{id}")
@@ -131,7 +149,6 @@ public class CadastroController {
         return ResponseEntity.ok(cadastroService.buscarSacadosPorNome(nome));
     }
     
-    // NOVO ENDPOINT DE BUSCA DE E-MAILS POR ID
     @GetMapping("/clientes/{id}/emails")
     public ResponseEntity<List<String>> getEmailsByClienteId(@PathVariable Long id) {
         return clienteRepository.findById(id)

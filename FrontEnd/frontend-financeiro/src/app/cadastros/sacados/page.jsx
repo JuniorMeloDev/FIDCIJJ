@@ -9,13 +9,13 @@ import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralSacados from '@/app/components/FiltroLateralSacados';
 import { formatCnpjCpf, formatTelefone } from '@/app/utils/formatters';
-import useAuth from '@/app/hooks/useAuth'; // Importe o hook
+import useAuth from '@/app/hooks/useAuth';
 
 const API_URL = 'http://localhost:8080/api/cadastros';
 const ITEMS_PER_PAGE = 10;
 
 export default function SacadosPage() {
-    const { isAdmin } = useAuth(); // Use o hook
+    const { isAdmin } = useAuth();
     const [sacados, setSacados] = useState([]);
     const [tiposOperacao, setTiposOperacao] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,6 +25,7 @@ export default function SacadosPage() {
     const [notification, setNotification] = useState({ message: '', type: '' });
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ nome: '', cnpj: '' });
+    
     const [sacadoParaExcluir, setSacadoParaExcluir] = useState(null);
 
     const getAuthHeader = () => {
@@ -83,25 +84,29 @@ export default function SacadosPage() {
     const handleOpenEditModal = (sacado) => { setEditingSacado(sacado); setIsModalOpen(true); };
 
     const handleSaveSacado = async (id, data) => {
-        const isUpdating = !!id;
-        const url = isUpdating ? `${API_URL}/sacados/${id}` : `${API_URL}/sacados`;
-        const method = isUpdating ? 'PUT' : 'POST';
         try {
+            const isUpdating = !!id;
+            const url = isUpdating ? `${API_URL}/sacados/${id}` : `${API_URL}/sacados`;
+            const method = isUpdating ? 'PUT' : 'POST';
+
             const payload = { ...data };
             const response = await fetch(url, { 
                 method, 
                 headers: { 'Content-Type': 'application/json', ...getAuthHeader() }, 
                 body: JSON.stringify(payload) 
             });
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Falha ao salvar o sacado.');
             }
+            
             setIsModalOpen(false);
             await fetchData();
             showNotification(`Sacado ${isUpdating ? 'atualizado' : 'criado'} com sucesso!`, 'success');
+            return { success: true };
         } catch (err) {
-            showNotification(err.message, 'error');
+            return { success: false, message: err.message };
         }
     };
     
@@ -143,8 +148,6 @@ export default function SacadosPage() {
                 sacado={editingSacado}
                 onSave={handleSaveSacado}
                 onDelete={handleDeleteRequest}
-                showNotification={showNotification}
-                tiposOperacao={tiposOperacao}
             />
 
             <ConfirmacaoModal

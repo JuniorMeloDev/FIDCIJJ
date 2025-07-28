@@ -9,13 +9,13 @@ import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import Pagination from '@/app/components/Pagination';
 import FiltroLateralClientes from '@/app/components/FiltroLateralClientes';
 import { formatCnpjCpf } from '@/app/utils/formatters'; 
-import useAuth from '@/app/hooks/useAuth'; // Importe o hook
+import useAuth from '@/app/hooks/useAuth';
 
 const API_URL = 'http://localhost:8080/api/cadastros';
 const ITEMS_PER_PAGE = 10; 
 
 export default function ClientesPage() {
-    const { isAdmin } = useAuth(); // Use o hook para verificar se é admin
+    const { isAdmin } = useAuth();
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -40,9 +40,7 @@ export default function ClientesPage() {
     const fetchClientes = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/clientes`, {
-                headers: getAuthHeader()
-            });
+            const response = await fetch(`${API_URL}/clientes`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Falha ao carregar clientes. Verifique se está logado.');
             const data = await response.json();
             setClientes(data);
@@ -79,27 +77,28 @@ export default function ClientesPage() {
     const handleOpenEditModal = (cliente) => { setEditingCliente(cliente); setIsModalOpen(true); };
 
     const handleSaveCliente = async (id, data) => {
-        const isUpdating = !!id;
-        const url = isUpdating ? `${API_URL}/clientes/${id}` : `${API_URL}/clientes`;
-        const method = isUpdating ? 'PUT' : 'POST';
         try {
+            const isUpdating = !!id;
+            const url = isUpdating ? `${API_URL}/clientes/${id}` : `${API_URL}/clientes`;
+            const method = isUpdating ? 'PUT' : 'POST';
+
             const response = await fetch(url, {
                 method: method,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...getAuthHeader()
-                },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(data),
             });
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(errorText || 'Falha ao salvar cliente.');
             }
+            
             setIsModalOpen(false);
             await fetchClientes();
             showNotification(`Cliente ${isUpdating ? 'atualizado' : 'criado'} com sucesso!`, 'success');
+            return { success: true };
         } catch (err) {
-            showNotification(err.message, 'error');
+            return { success: false, message: err.message };
         }
     };
 
@@ -134,7 +133,7 @@ export default function ClientesPage() {
     return (
         <main className="min-h-screen pt-16 p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
-            <EditClienteModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} cliente={editingCliente} onSave={handleSaveCliente} onDelete={handleDeleteRequest} showNotification={showNotification} />
+            <EditClienteModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} cliente={editingCliente} onSave={handleSaveCliente} onDelete={handleDeleteRequest} />
             <ConfirmacaoModal isOpen={!!clienteParaExcluir} onClose={() => setClienteParaExcluir(null)} onConfirm={handleConfirmarExclusao} title="Confirmar Exclusão" message={`Deseja excluir o cliente "${clienteParaExcluir?.nome}"?`} />
             
             <motion.header 

@@ -96,6 +96,7 @@ public class OperacaoService {
 
         duplicatasParaSalvar.forEach(dup -> dup.setOperacao(operacaoSalva));
         duplicataRepository.saveAll(duplicatasParaSalvar);
+
         operacaoSalva.setDuplicatas(duplicatasParaSalvar);
 
         if (operacaoDto.getDescontos() != null && !operacaoDto.getDescontos().isEmpty()) {
@@ -113,7 +114,7 @@ public class OperacaoService {
 
         return operacaoSalva.getId();
     }
-    
+
     @Transactional(readOnly = true)
     public CalculoResponseDto calcularJuros(CalculoRequestDto request) {
         TipoOperacao tipoOperacao = tipoOperacaoRepository.findById(request.getTipoOperacaoId())
@@ -332,8 +333,12 @@ public class OperacaoService {
             }
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+
         Sort.Direction sortDirection = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Sort sortOrder = Sort.by(sortDirection, sort);
+        // CORRIGIDO: Divide a string de ordenação para lidar com múltiplos campos
+        String[] sortProperties = sort.split(",");
+        Sort sortOrder = Sort.by(sortDirection, sortProperties);
+
         return duplicataRepository.findAll(spec, sortOrder).stream()
                 .map(this::converterParaDto)
                 .collect(Collectors.toList());
