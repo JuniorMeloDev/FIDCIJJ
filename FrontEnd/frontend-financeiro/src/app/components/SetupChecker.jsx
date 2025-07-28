@@ -3,6 +3,21 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import PrimeiroAcesso from './PrimeiroAcesso';
+import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
+import SessionTimeoutModal from './SessionTimeoutModal';
+
+// Componente interno para ativar o gerenciador de inatividade
+function InactivityManager() {
+    const { isWarningModalOpen, countdown, handleContinue, logout } = useInactivityTimeout();
+    return (
+        <SessionTimeoutModal
+            isOpen={isWarningModalOpen}
+            onContinue={handleContinue}
+            onLogout={logout}
+            countdown={countdown}
+        />
+    );
+}
 
 export default function SetupChecker({ children }) {
     const [status, setStatus] = useState({ loading: true, needsSetup: false, isAuthenticated: false });
@@ -30,9 +45,7 @@ export default function SetupChecker({ children }) {
                 const data = await response.json();
                 
                 setStatus({ loading: false, needsSetup: data.needsSetup, isAuthenticated });
-
-                // LÓGICA DE REDIRECIONAMENTO REMOVIDA
-                // O sistema não vai mais forçar o redirecionamento para /cadastros
+                
                 if (!isAuthenticated) {
                     router.push('/login');
                 }
@@ -68,16 +81,25 @@ export default function SetupChecker({ children }) {
         return <>{children}</>;
     }
 
-    // Se precisar de setup e estiver em uma página protegida, mostra a tela de primeiro acesso.
     if (status.needsSetup) {
         if (pathname.startsWith('/cadastros')) {
-            return <>{children}</>;
+            return (
+                <>
+                    {children}
+                    {isAuthenticated && <InactivityManager />}
+                </>
+            );
         }
         return <PrimeiroAcesso />;
     }
     
     if(isAuthenticated){
-        return <>{children}</>;
+        return (
+            <>
+                {children}
+                <InactivityManager />
+            </>
+        );
     }
 
     return null;
