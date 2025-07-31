@@ -25,4 +25,4 @@ COPY --from=build /app/target/demo-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
 
 # Comando que será executado quando o container iniciar
-ENTRYPOINT ["java -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dspring.datasource.url=$SPRING_DATASOURCE_URL -Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME -Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD -Djwt.secret.key=$JWT_SECRET -jar /app/app.jar"]
