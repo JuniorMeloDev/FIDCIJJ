@@ -16,7 +16,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "https://fidcijj-front.onrender.com", allowCredentials = "true")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -28,11 +27,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-     // preflight explícito
-    @RequestMapping(value = "/login", method = RequestMethod.OPTIONS)
-    public ResponseEntity<?> loginOptions() {
-        return ResponseEntity.ok().build();
-    }
+    // O método explícito para OPTIONS foi removido, pois já é tratado globalmente.
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequestDto authRequest) {
