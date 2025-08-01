@@ -50,7 +50,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Adicione a URL do seu frontend da Vercel aqui
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://fidcijj.vercel.app/"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://fidcijj.vercel.app/","https://fidcijj.onrender.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
