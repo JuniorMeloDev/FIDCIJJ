@@ -33,7 +33,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Habilita o CORS
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -47,12 +47,25 @@ public class SecurityConfig {
     }
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Adicione a URL do seu frontend da Vercel aqui
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://fidcijj.vercel.app/","https://fidcijj.onrender.com","https://fidcijj-front.onrender.com"));
+
+        // ✅ Adiciona os domínios permitidos
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",
+            "https://fidcijj.vercel.app",
+            "https://fidcijj-front.onrender.com"
+        ));
+
+        // ✅ Métodos HTTP permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // ✅ Permitir todos os headers
         configuration.setAllowedHeaders(List.of("*"));
+
+        // ✅ Corrige o problema: permite envio de credenciais (cookies/autenticação)
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
