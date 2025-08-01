@@ -5,8 +5,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import PrimeiroAcesso from './PrimeiroAcesso';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 import SessionTimeoutModal from './SessionTimeoutModal';
+import { API_URL } from '../apiConfig'; 
 
-// Componente interno para ativar o gerenciador de inatividade
+
 function InactivityManager() {
     const { isWarningModalOpen, countdown, handleContinue, logout } = useInactivityTimeout();
     return (
@@ -38,7 +39,7 @@ export default function SetupChecker({ children }) {
                 const token = sessionStorage.getItem('authToken');
                 const isAuthenticated = !!token;
 
-                const response = await fetch('http://localhost:8080/api/setup/status');
+                const response = await fetch(`${API_URL}/setup/status`); // Usa a API_URL
                 if (!response.ok) {
                     throw new Error('Não foi possível conectar ao servidor. Verifique se o backend está em execução.');
                 }

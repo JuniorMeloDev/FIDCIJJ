@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-const API_URL = 'http://localhost:8080/api';
+import { API_URL } from '../apiConfig';
 
 export default function EmailModal({ isOpen, onClose, onSend, isSending, clienteId }) {
     const [recipients, setRecipients] = useState([]);
     const [newEmail, setNewEmail] = useState('');
     
     const getAuthHeader = () => {
-        const token = localStorage.getItem('authToken');
+        const token = sessionStorage.getItem('authToken'); 
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 

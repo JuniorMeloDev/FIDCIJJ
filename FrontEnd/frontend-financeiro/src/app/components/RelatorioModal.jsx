@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AutocompleteSearch from './AutoCompleteSearch';
-
-const API_URL = "http://localhost:8080/api";
+import { API_URL } from '../apiConfig'; 
 
 export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchClientes, fetchSacados }) {
     const initialState = {
@@ -16,7 +15,7 @@ export default function RelatorioModal({ isOpen, onClose, tiposOperacao, fetchCl
     const [format, setFormat] = useState('pdf');
 
     const getAuthHeader = () => {
-        const token = sessionStorage.getItem('authToken'); // Usando sessionStorage
+        const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
