@@ -1,6 +1,6 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import EditClienteModal from '@/app/components/EditClienteModal';
@@ -10,8 +10,8 @@ import Pagination from '@/app/components/Pagination';
 import FiltroLateralClientes from '@/app/components/FiltroLateralClientes';
 import { formatCnpjCpf } from '@/app/utils/formatters'; 
 import useAuth from '@/app/hooks/useAuth';
+import { API_URL } from '../../apiConfig'; 
 
-const API_URL = 'http://localhost:8080/api/cadastros';
 const ITEMS_PER_PAGE = 10; 
 
 export default function ClientesPage() {
@@ -40,7 +40,7 @@ export default function ClientesPage() {
     const fetchClientes = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/clientes`, { headers: getAuthHeader() });
+            const response = await fetch(`${API_URL}/cadastros/clientes`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Falha ao carregar clientes. Verifique se está logado.');
             const data = await response.json();
             setClientes(data);
@@ -79,7 +79,7 @@ export default function ClientesPage() {
     const handleSaveCliente = async (id, data) => {
         try {
             const isUpdating = !!id;
-            const url = isUpdating ? `${API_URL}/clientes/${id}` : `${API_URL}/clientes`;
+            const url = isUpdating ? `${API_URL}/cadastros/clientes/${id}` : `${API_URL}/cadastros/clientes`;
             const method = isUpdating ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -110,7 +110,7 @@ export default function ClientesPage() {
     const handleConfirmarExclusao = async () => {
         if (!clienteParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/clientes/${clienteParaExcluir.id}`, { 
+            const response = await fetch(`${API_URL}/cadastros/clientes/${clienteParaExcluir.id}`, { 
                 method: 'DELETE',
                 headers: getAuthHeader()
             });

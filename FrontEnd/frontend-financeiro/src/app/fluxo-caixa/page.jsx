@@ -10,8 +10,8 @@ import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
 import FiltroLateral from '@/app/components/FiltroLateral';
 import Pagination from '@/app/components/Pagination';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { API_URL } from '../apiConfig'; // IMPORTAÇÃO CORRETA DA URL
 
-const API_URL = 'http://localhost:8080/api';
 const ITEMS_PER_PAGE = 6;
 
 export default function FluxoDeCaixaPage() {
@@ -42,7 +42,6 @@ export default function FluxoDeCaixaPage() {
     const [isSendingEmail, setIsSendingEmail] = useState(false);
 
     const getAuthHeader = () => {
-        // ALTERADO: de localStorage para sessionStorage
         const token = sessionStorage.getItem('authToken');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
@@ -110,9 +109,9 @@ export default function FluxoDeCaixaPage() {
                 if (clientesData.length > 0) {
                     setClienteMasterNome(clientesData[0].nome);
                 }
-            } catch (err) {
+             } catch (err) {
                  console.error(err.message);
-            }
+             }
         };
         fetchStaticData();
     }, []);

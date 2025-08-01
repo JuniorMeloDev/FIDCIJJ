@@ -7,7 +7,6 @@ export default function useAuth() {
     const [auth, setAuth] = useState({ user: null, isAdmin: false });
 
     useEffect(() => {
-        // ALTERADO: de localStorage para sessionStorage
         const token = sessionStorage.getItem('authToken');
         if (token) {
             try {

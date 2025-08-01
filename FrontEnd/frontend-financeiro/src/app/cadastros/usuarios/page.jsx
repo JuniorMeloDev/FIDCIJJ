@@ -5,20 +5,17 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import Notification from '@/app/components/Notification';
 import UserModal from '@/app/components/UserModal';
-import useAuth from '@/app/hooks/useAuth'; // Importe o hook
-
-const API_URL = 'http://localhost:8080/api/users';
+import useAuth from '@/app/hooks/useAuth';
+import { API_URL } from '../../apiConfig';
 
 export default function UsuariosPage() {
-    const { isAdmin } = useAuth(); // Use o hook
+    const { isAdmin } = useAuth();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: '' });
-
-    // ... (o restante do seu código permanece o mesmo) ...
 
     const getAuthHeader = () => {
         const token = sessionStorage.getItem('authToken');
@@ -33,7 +30,8 @@ export default function UsuariosPage() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const response = await fetch(API_URL, { headers: getAuthHeader() });
+     
+            const response = await fetch(`${API_URL}/users`, { headers: getAuthHeader() });
             if (response.status === 403) throw new Error("Acesso negado. Apenas administradores podem ver esta página.");
             if (!response.ok) throw new Error("Falha ao carregar usuários.");
             const data = await response.json();
@@ -46,12 +44,17 @@ export default function UsuariosPage() {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (isAdmin) {
+            fetchUsers();
+        } else {
+            setError("Acesso negado. Apenas administradores podem ver esta página.");
+            setLoading(false);
+        }
+    }, [isAdmin]);
 
     const handleSave = async (userData) => {
         try {
-            const response = await fetch(API_URL, {
+            const response = await fetch(`${API_URL}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                 body: JSON.stringify(userData),

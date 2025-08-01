@@ -10,8 +10,8 @@ import Pagination from '@/app/components/Pagination';
 import FiltroLateralSacados from '@/app/components/FiltroLateralSacados';
 import { formatCnpjCpf, formatTelefone } from '@/app/utils/formatters';
 import useAuth from '@/app/hooks/useAuth';
+import { API_URL } from '../../apiConfig'; 
 
-const API_URL = 'http://localhost:8080/api/cadastros';
 const ITEMS_PER_PAGE = 10;
 
 export default function SacadosPage() {
@@ -43,8 +43,8 @@ export default function SacadosPage() {
         try {
             const headers = getAuthHeader();
             const [sacadosRes, tiposRes] = await Promise.all([
-                fetch(`${API_URL}/sacados`, { headers }),
-                fetch(`${API_URL}/tipos-operacao`, { headers })
+                fetch(`${API_URL}/cadastros/sacados`, { headers }),
+                fetch(`${API_URL}/cadastros/tipos-operacao`, { headers })
             ]);
             if (!sacadosRes.ok) throw new Error('Falha ao carregar sacados.');
             if (!tiposRes.ok) throw new Error('Falha ao carregar tipos de operação.');
@@ -86,7 +86,7 @@ export default function SacadosPage() {
     const handleSaveSacado = async (id, data) => {
         try {
             const isUpdating = !!id;
-            const url = isUpdating ? `${API_URL}/sacados/${id}` : `${API_URL}/sacados`;
+            const url = isUpdating ? `${API_URL}/cadastros/sacados/${id}` : `${API_URL}/cadastros/sacados`;
             const method = isUpdating ? 'PUT' : 'POST';
 
             const payload = { ...data };
@@ -118,7 +118,7 @@ export default function SacadosPage() {
     const handleConfirmarExclusao = async () => {
         if (!sacadoParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/sacados/${sacadoParaExcluir.id}`, { 
+            const response = await fetch(`${API_URL}/cadastros/sacados/${sacadoParaExcluir.id}`, { 
                 method: 'DELETE',
                 headers: getAuthHeader()
             });

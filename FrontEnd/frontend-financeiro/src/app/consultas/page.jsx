@@ -8,11 +8,11 @@ import ConfirmacaoEstornoModal from '@/app/components/ConfirmacaoEstornoModal';
 import { formatBRLNumber, formatDate } from '@/app/utils/formatters';
 import EmailModal from '@/app/components/EmailModal';
 import Pagination from '@/app/components/Pagination';
-import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas'; 
+import FiltroLateralConsultas from '@/app/components/FiltroLateralConsultas';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { API_URL } from '../apiConfig'; // IMPORTAÇÃO CORRETA DA URL
 
 const ITEMS_PER_PAGE = 7;
-const API_URL = "http://localhost:8080/api";
 
 export default function ConsultasPage() {
     const [duplicatas, setDuplicatas] = useState([]);
@@ -67,6 +67,7 @@ export default function ConsultasPage() {
         params.append('direction', currentSortConfig.direction);
         
         try {
+            // Todas as chamadas fetch já usam a API_URL importada, então não precisam de alteração
             const response = await fetch(`${API_URL}/duplicatas?${params.toString()}`, {
                 headers: getAuthHeader()
             });
@@ -278,15 +279,15 @@ export default function ConsultasPage() {
                         <div className="overflow-auto">
                             <table className="min-w-full divide-y divide-gray-700">
                                <thead className="bg-gray-700">
-                                    <tr>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataOperacao')} className="flex items-center gap-1">Data Op. {getSortIcon('dataOperacao')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase min-w-[120px]"><button onClick={() => handleSort('nfCte')} className="flex items-center gap-1">NF/CT-e {getSortIcon('nfCte')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('operacao.cliente.nome')} className="flex items-center gap-1">Cedente {getSortIcon('operacao.cliente.nome')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('clienteSacado')} className="flex items-center gap-1">Sacado {getSortIcon('clienteSacado')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorBruto')} className="flex items-center gap-1 float-right">Valor Bruto {getSortIcon('valorBruto')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorJuros')} className="flex items-center gap-1 float-right">Juros {getSortIcon('valorJuros')}</button></th>
-                                        <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataVencimento')} className="flex items-center gap-1">Data Venc. {getSortIcon('dataVencimento')}</button></th>
-                                    </tr>
+                                   <tr>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataOperacao')} className="flex items-center gap-1">Data Op. {getSortIcon('dataOperacao')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase min-w-[120px]"><button onClick={() => handleSort('nfCte')} className="flex items-center gap-1">NF/CT-e {getSortIcon('nfCte')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('operacao.cliente.nome')} className="flex items-center gap-1">Cedente {getSortIcon('operacao.cliente.nome')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('clienteSacado')} className="flex items-center gap-1">Sacado {getSortIcon('clienteSacado')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorBruto')} className="flex items-center gap-1 float-right">Valor Bruto {getSortIcon('valorBruto')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('valorJuros')} className="flex items-center gap-1 float-right">Juros {getSortIcon('valorJuros')}</button></th>
+                                       <th className="sticky top-0 bg-gray-700 z-10 px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase"><button onClick={() => handleSort('dataVencimento')} className="flex items-center gap-1">Data Venc. {getSortIcon('dataVencimento')}</button></th>
+                                   </tr>
                                 </thead>
                                 <tbody className="bg-gray-800 divide-y divide-gray-700">
                                     {currentItems.map((dup) => {

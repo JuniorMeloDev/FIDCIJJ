@@ -9,13 +9,13 @@ import FiltroLateralTiposOperacao from '@/app/components/FiltroLateralTiposOpera
 import EditTipoOperacaoModal from '@/app/components/EditTipoOperacaoModal';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import { formatBRLNumber } from '@/app/utils/formatters';
-import useAuth from '@/app/hooks/useAuth'; // Importe o hook
+import useAuth from '@/app/hooks/useAuth';
+import { API_URL } from '../../apiConfig';
 
-const API_URL = 'http://localhost:8080/api/cadastros';
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 7;
 
 export default function TiposOperacaoPage() {
-    const { isAdmin } = useAuth(); // Use o hook
+    const { isAdmin } = useAuth();
     const [tiposOperacao, setTiposOperacao] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -26,7 +26,6 @@ export default function TiposOperacaoPage() {
     const [filters, setFilters] = useState({ nome: '' });
     
     const [operacaoParaExcluir, setOperacaoParaExcluir] = useState(null);
-
 
     const getAuthHeader = () => {
         const token = sessionStorage.getItem('authToken');
@@ -41,7 +40,7 @@ export default function TiposOperacaoPage() {
     const fetchTiposOperacao = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/tipos-operacao`, { headers: getAuthHeader() });
+            const response = await fetch(`${API_URL}/cadastros/tipos-operacao`, { headers: getAuthHeader() });
             if (!response.ok) throw new Error('Falha ao carregar os tipos de operação.');
             setTiposOperacao(await response.json());
         } catch (err) {
@@ -83,7 +82,7 @@ export default function TiposOperacaoPage() {
 
     const handleSave = async (id, data) => {
         const isUpdating = !!id;
-        const url = isUpdating ? `${API_URL}/tipos-operacao/${id}` : `${API_URL}/tipos-operacao`;
+        const url = isUpdating ? `${API_URL}/cadastros/tipos-operacao/${id}` : `${API_URL}/cadastros/tipos-operacao`;
         const method = isUpdating ? 'PUT' : 'POST';
 
         try {
@@ -110,7 +109,7 @@ export default function TiposOperacaoPage() {
     const handleConfirmarExclusao = async () => {
         if (!operacaoParaExcluir) return;
         try {
-            const response = await fetch(`${API_URL}/tipos-operacao/${operacaoParaExcluir.id}`, { 
+            const response = await fetch(`${API_URL}/cadastros/tipos-operacao/${operacaoParaExcluir.id}`, { 
                 method: 'DELETE',
                 headers: getAuthHeader()
             });

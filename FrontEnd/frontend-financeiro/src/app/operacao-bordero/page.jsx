@@ -12,8 +12,7 @@ import EditSacadoModal from '@/app/components/EditSacadoModal';
 import ConfirmacaoModal from '@/app/components/ConfirmacaoModal';
 import EmailModal from '@/app/components/EmailModal';
 import { formatBRLInput, parseBRL } from '@/app/utils/formatters';
-
-const API_URL = 'http://localhost:8080/api';
+import { API_URL } from '../apiConfig';
 
 export default function OperacaoBorderoPage() {
     const [dataOperacao, setDataOperacao] = useState(new Date().toISOString().split('T')[0]);
@@ -295,7 +294,6 @@ export default function OperacaoBorderoPage() {
         }
     };
     
-    // Função unificada para finalizar a operação
     const finalizarOperacao = () => {
         if (savedOperacaoInfo) {
             showNotification(`Operação salva com sucesso!`, 'success');
@@ -315,13 +313,13 @@ export default function OperacaoBorderoPage() {
         } finally {
             setIsSendingEmail(false);
             setIsEmailModalOpen(false);
-            finalizarOperacao(); // Chama a função de finalização
+            finalizarOperacao();
         }
     };
 
     const handleCloseEmailModal = () => {
         setIsEmailModalOpen(false);
-        finalizarOperacao(); // Chama a função de finalização
+        finalizarOperacao();
     };
 
     const handleLimparTudo = (showMsg = true) => {

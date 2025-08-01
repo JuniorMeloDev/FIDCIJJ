@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import Notification from '../components/Notification';
+import { API_URL } from '../apiConfig';
 
 export default function ProfilePage() {
     const [user, setUser] = useState(null);
@@ -20,7 +21,7 @@ export default function ProfilePage() {
     const handlePasswordSave = async (passwordData) => {
         try {
             const token = sessionStorage.getItem('authToken');
-            const response = await fetch('http://localhost:8080/api/users/change-password', {
+            const response = await fetch(`${API_URL}/users/change-password`, { 
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -41,7 +42,6 @@ export default function ProfilePage() {
         }
     };
 
-
     useEffect(() => {
         const fetchUserData = async () => {
             const token = sessionStorage.getItem('authToken');
@@ -52,7 +52,7 @@ export default function ProfilePage() {
             }
 
             try {
-                const response = await fetch('http://localhost:8080/api/users/me', {
+                const response = await fetch(`${API_URL}/users/me`, { 
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) {
@@ -71,7 +71,7 @@ export default function ProfilePage() {
     }, []);
 
     if (loading) {
-        return <div className="p-8 text-center text-gray-300">A carregar perfil...</div>;
+        return <div className="p-8 text-center text-gray-300">Carregando perfil...</div>;
     }
 
     if (error) {
