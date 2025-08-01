@@ -17,6 +17,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "https://fidcijj.vercel.app",
+        "https://fidcijj-front.onrender.com"
+})
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
