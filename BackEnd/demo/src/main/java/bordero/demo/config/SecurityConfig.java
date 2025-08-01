@@ -35,10 +35,9 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/login").permitAll()
-                // REATIVE A AUTENTICAÇÃO OBRIGATÓRIA AQUI
-                .anyRequest().authenticated() 
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Essencial para CORS
+                .requestMatchers("/api/auth/**").permitAll()           // Permite login/registo
+                .anyRequest().authenticated()                           // Protege todo o resto
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
@@ -50,17 +49,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Lista de origens permitidas (seu frontend)
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",
             "https://fidcijj.vercel.app",
             "https://fidcijj-front.onrender.com"
         ));
-        // Métodos HTTP permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Permite todos os cabeçalhos
         configuration.setAllowedHeaders(List.of("*"));
-        // Permite o envio de credenciais (necessário para autenticação)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
