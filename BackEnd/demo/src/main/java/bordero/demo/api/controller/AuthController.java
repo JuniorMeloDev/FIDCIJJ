@@ -34,9 +34,15 @@ public class AuthController {
 
     // 👉 Suporte à requisição OPTIONS no /login
     @RequestMapping(value = "/login", method = RequestMethod.OPTIONS)
-    public ResponseEntity<?> handleLoginOptions() {
-        return ResponseEntity.ok().build();
-    }
+public ResponseEntity<?> handleLoginOptions() {
+    return ResponseEntity
+        .ok()
+        .header("Access-Control-Allow-Origin", "https://fidcijj-front.onrender.com")
+        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        .header("Access-Control-Allow-Credentials", "true")
+        .build();
+}
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequestDto authRequest) {
