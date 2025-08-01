@@ -27,12 +27,16 @@ const LoginPage = () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Usuário ou senha inválidos.');
+                // Tenta ler a mensagem de erro do corpo da resposta
+                const errorText = await response.text(); 
+                throw new Error(errorText || 'Usuário ou senha inválidos.');
             }
 
             const data = await response.json();
-            localStorage.setItem('token', data.token); // Salva o token
+            
+            // LINHA CORRIGIDA: Armazena o token no sessionStorage com a chave correta
+            sessionStorage.setItem('authToken', data.token); 
+
             router.push('/resumo'); // Redireciona para a página de resumo
         } catch (err) {
             setError(err.message);

@@ -33,11 +33,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Usa a configuração de CORS abaixo
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Essencial para CORS
-                .requestMatchers("/api/auth/**").permitAll()           // Permite login/registo
-                .anyRequest().authenticated()                           // Protege todo o resto
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permite requisições preflight de CORS
+                .requestMatchers("/api/auth/**", "/api/setup/status").permitAll() // Permite login e verificação de setup
+                .anyRequest().authenticated() // Exige autenticação para todas as outras rotas
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 

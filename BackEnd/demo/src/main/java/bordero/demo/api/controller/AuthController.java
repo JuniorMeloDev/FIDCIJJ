@@ -27,7 +27,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    // O método explícito para OPTIONS foi removido, pois já é tratado globalmente.
+    
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequestDto authRequest) {
