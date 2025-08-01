@@ -33,15 +33,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            // Diz ao Spring Security para usar a configuração de CORS definida no bean abaixo
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                // Permite requisições OPTIONS (necessário para o CORS)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Permite o login
                 .requestMatchers("/api/auth/login").permitAll()
-                // ATENÇÃO: Permite todas as outras requisições para teste
-                .anyRequest().permitAll() 
+                // REATIVE A AUTENTICAÇÃO OBRIGATÓRIA AQUI
+                .anyRequest().authenticated() 
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
